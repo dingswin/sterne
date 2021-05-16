@@ -1,2 +1,2 @@
-# ORBITT
-astrOmetRy Bayesian Inference ToolkiT
+# STERN (Star in German)
+aStromeTry bayEsian infeReNc
