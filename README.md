@@ -1,2 +1,2 @@
-# STERN (Star in German)
-aStromeTry bayEsian infeReNce
+# STERNE (Stars in German)
+aStromeTry bayEsian infeReNcE
