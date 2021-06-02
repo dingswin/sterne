@@ -3,7 +3,7 @@ import numpy as np
 import astropy.units as u
 import os, sys
 import howfun
-def position(refepoch, ra, dec, pmra, pmdec, px, epoch, useDE421=True, inputgeocentricposition=False):
+def position(refepoch, ra_rad, dec_rad, pmra, pmdec, px, epoch, useDE421=True, inputgeocentricposition=False):
     """
     Outputs position given reference position, proper motion and parallax 
     (at a reference epoch) and time of interest.
@@ -42,15 +42,15 @@ def position(refepoch, ra, dec, pmra, pmdec, px, epoch, useDE421=True, inputgeoc
     Notes
     -----
     """
-    ra_rad, dec_rad = dms2rad(ra, dec) 
+    #ra_rad, dec_rad = dms2rad(ra, dec) 
     dT = (epoch - refepoch) * (u.d).to(u.yr) #in yr
     ### proper motion effect ###
     dRA = dT * pmra / np.cos(dec_rad) # in mas
     dDEC = dT * pmdec #in mas
     ### parallax effect ###
-    dRA, dDEC = np.array([dRA, dDEC]) + parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px, useDE421)  # in mas
+    dRA, dDEC = np.array([dRA, dDEC]) + parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px, useDE421)  # in mas
     if inputgeocentricposition:
-        dRA, dDEC = np.array([dRA, dDEC]) - parallax_related_position_offset_from_the_barycentric_frame(refepoch, ra, dec, px, useDE421)  # in mas
+        dRA, dDEC = np.array([dRA, dDEC]) - parallax_related_position_offset_from_the_barycentric_frame(refepoch, ra_rad, dec_rad, px, useDE421)  # in mas
     ra_rad += dRA * (u.mas).to(u.rad)
     dec_rad += dDEC * (u.mas).to(u.rad)
     print(howfun.deg2dms(ra_rad*180/np.pi/15.), howfun.deg2dms(dec_rad*180/np.pi))
@@ -150,7 +150,7 @@ def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, 
     """
     import novas.compat.solsys as solsys
     from novas.compat.eph_manager import ephem_open
-    ra, dec = dms2rad(ra, dec) 
+    #ra, dec = dms2rad(ra, dec) 
     if not useDE421:
         ephem_open()
     else:
