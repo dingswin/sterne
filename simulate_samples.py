@@ -8,7 +8,54 @@ import os, sys
 import howfun
 from astropy.table import Table
 #from sterne.model.calculate as position
-def simulate(pmparin, refepoch):
+def simulate(refepoch, pmparin, *args):
+    """
+    args for more pmparin files.
+    """
+    t = readpmparin(pmparin)
+    radecs = np.concatenate([t['RA'], t['DEC']])
+    errs = np.concatenate([t['errRA'], t['errDEC']])
+    epochs = np.array(t['epoch'])
+    likelihood = Gaussianlikelihood(refepoch, epochs, radecs, errs, positions)
+    #RA_lower_limit, RA_upper_limit = get_a_prior(t['RA'])
+    #DEC_lower_limit, DEC_upper_limit = get_a_prior(t['DEC'])
+    #print(RA_lower_limit, RA_upper_limit, DEC_lower_limit, DEC_upper_limit)
+    initsfile = pmparin.replace('pmpar.in', 'inits')
+    #if not os.path.exists(initsfile):
+    #    generate_prior_range(pmparin, refepoch)
+    generate_prior_range(pmparin, refepoch)
+    limits = read_inits(initsfile)
+    priors = dict(px=bilby.core.prior.Uniform(limits['px'][0],limits['px'][1],'px'),
+                  pmra=bilby.core.prior.Uniform(limits['mu_a'][0],limits['mu_a'][1],'pmra'),
+                  pmdec=bilby.core.prior.Uniform(limits['mu_d'][0],limits['mu_d'][1],'pmdec'),
+                  ra_rad=bilby.core.prior.Uniform(limits['ra'][0], limits['ra'][1],'ra_rad'),
+                  dec_rad=bilby.core.prior.Uniform(limits['dec'][0], limits['dec'][1],'dec_rad'))
+    result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
+        sampler='emcee', nwalkers=100, iterations=100)
+    result.plot_corner()
+    result.save_posterior_samples()
+
+def infer_estimates_from_bilby_results(samplefile):
+    t = Table.read(samplefile, format='ascii')
+    dict_median = {}
+    dict_bound = {} #16% and 84% percentiles
+    for parameter in ['px', 'pmra', 'pmdec', 'ra_rad', 'dec_rad']:
+        exec("dict_median['%s'] = howfun.sample2median(t['%s'])" % (parameter, parameter))
+        exec("dict_bound['%s'] = howfun.sample2median_range(t['%s'], 1)" % (parameter, parameter))
+    outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
+    writefile = open(outputfile, 'w')
+    writefile.write('px = %f + %f - %f (mas)\n' % (dict_median['px'], dict_bound['px'][1]-dict_median['px'], dict_median['px']-dict_bound['px'][0]))
+    writefile.write('pmra = %f + %f - %f (mas/yr)\n' % (dict_median['pmra'], dict_bound['pmra'][1]-dict_median['pmra'], dict_median['pmra']-dict_bound['pmra'][0]))
+    writefile.write('pmdec = %f + %f - %f (mas/yr)\n' % (dict_median['pmdec'], dict_bound['pmdec'][1]-dict_median['pmdec'], dict_median['pmdec']-dict_bound['pmdec'][0]))
+    writefile.write('ra = %.11f + %.11f - %.11f (rad)\n' % (dict_median['ra_rad'], dict_bound['ra_rad'][1]-dict_median['ra_rad'], dict_median['ra_rad']-dict_bound['ra_rad'][0]))
+    writefile.write('dec = %.11f + %.11f - %.11f (rad)\n' % (dict_median['dec_rad'], dict_bound['dec_rad'][1]-dict_median['dec_rad'], dict_median['dec_rad']-dict_bound['dec_rad'][0]))
+    writefile.close()
+
+
+
+
+
+def simulate1(pmparin, refepoch):
     t = readpmparin(pmparin)
     radecs = np.concatenate([t['RA'], t['DEC']])
     errs = np.concatenate([t['errRA'], t['errDEC']])
