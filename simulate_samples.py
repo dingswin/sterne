@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+written in python3.
+"""
 import bilby, inspect
 from astropy.time import Time
 import numpy as np
@@ -37,9 +40,6 @@ def simulate(refepoch, pmparin, *args, **kwargs):
     print(unshares)
     print(list_of_dict)
     likelihood = Gaussianlikelihood(refepoch, list_of_dict, unshares, positions)
-    #RA_lower_limit, RA_upper_limit = get_a_prior(t['RA'])
-    #DEC_lower_limit, DEC_upper_limit = get_a_prior(t['DEC'])
-    #print(RA_lower_limit, RA_upper_limit, DEC_lower_limit, DEC_upper_limit)
     initsfile = pmparins[0].replace('pmpar.in', 'inits')
     #if not os.path.exists(initsfile):
     #    generate_prior_range(pmparin, refepoch)
@@ -57,36 +57,30 @@ def simulate(refepoch, pmparin, *args, **kwargs):
 
 def infer_estimates_from_bilby_results(samplefile):
     t = Table.read(samplefile, format='ascii')
+    parameters = t.colnames[:-2]
     dict_median = {}
-    dict_bound = {} #16% and 84% percentiles
-    for parameter in ['px', 'pmra', 'pmdec', 'ra_rad', 'dec_rad']:
-        dict_median[parameter] = howfun.sample2median(t[parameter])
-        dict_bound[parameter] = howfun.sample2median_range(t[parameter], 1)
+    dict_bound = {}??????????? #16% and 84% percentiles
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
-    writefile.write('px = %f + %f - %f (mas)\n' % (dict_median['px'], dict_bound['px'][1]-dict_median['px'], dict_median['px']-dict_bound['px'][0]))
-    writefile.write('pmra = %f + %f - %f (mas/yr)\n' % (dict_median['pmra'], dict_bound['pmra'][1]-dict_median['pmra'], dict_median['pmra']-dict_bound['pmra'][0]))
-    writefile.write('pmdec = %f + %f - %f (mas/yr)\n' % (dict_median['pmdec'], dict_bound['pmdec'][1]-dict_median['pmdec'], dict_median['pmdec']-dict_bound['pmdec'][0]))
-    writefile.write('ra = %.11f + %.11f - %.11f (rad)\n' % (dict_median['ra_rad'], dict_bound['ra_rad'][1]-dict_median['ra_rad'], dict_median['ra_rad']-dict_bound['ra_rad'][0]))
-    writefile.write('dec = %.11f + %.11f - %.11f (rad)\n' % (dict_median['dec_rad'], dict_bound['dec_rad'][1]-dict_median['dec_rad'], dict_median['dec_rad']-dict_bound['dec_rad'][0]))
+    writefile.write('#Units: px in mas, ra and dec in rad, mu_a and mu_d in mas/yr\n')
+    for p in parameters:
+        dict_median[p] = howfun.sample2median(t[p])
+        dict_bound[p] = howfun.sample2median_range(t[p], 1)
+        writefile.write('%s = %f + %.11f - %.11f\n' % (p, dict_median[p],\
+            dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
     writefile.close()
 
 
 
 
 
-def simulate1(pmparin, refepoch):
+def simulate________________1(pmparin, refepoch):
     t = readpmparin(pmparin)
     radecs = np.concatenate([t['RA'], t['DEC']])
     errs = np.concatenate([t['errRA'], t['errDEC']])
     epochs = np.array(t['epoch'])
     likelihood = Gaussianlikelihood(refepoch, epochs, radecs, errs, positions)
-    #RA_lower_limit, RA_upper_limit = get_a_prior(t['RA'])
-    #DEC_lower_limit, DEC_upper_limit = get_a_prior(t['DEC'])
-    #print(RA_lower_limit, RA_upper_limit, DEC_lower_limit, DEC_upper_limit)
     initsfile = pmparin.replace('pmpar.in', 'inits')
-    #if not os.path.exists(initsfile):
-    #    generate_prior_range(pmparin, refepoch)
     generate_prior_range(pmparin, refepoch)
     limits = read_inits(initsfile)
     priors = dict(px=bilby.core.prior.Uniform(limits['px'][0],limits['px'][1],'px'),
@@ -99,7 +93,7 @@ def simulate1(pmparin, refepoch):
     result.plot_corner()
     result.save_posterior_samples()
 
-def get_a_prior(chain, HowManyTimesStd=20):
+def __________get_a_prior(chain, HowManyTimesStd=20):
     """
     deprecated.
     prior for ra and dec is set using generate_prior_range() now.
@@ -143,6 +137,10 @@ def read_inits________________1(initsfile):
     return dict_limits 
 
 def generate_prior_range(pmparins, unshares, epoch, HowManySigma=20):
+    """
+    Common parameters might have more than 1 list of priors.
+    In such cases, the larger outer bound will be adopted.
+    """
     HMS = HowManySigma
     inits = pmparins[0].replace('pmpar.in','inits')
     writefile = open(inits, 'w')
@@ -153,28 +151,28 @@ def generate_prior_range(pmparins, unshares, epoch, HowManySigma=20):
         pmparout = pmparins[i].replace('pmpar.in','pmpar.out')
         replace_pmparin_epoch(pmparins[i], epoch)
         os.system("pmpar %s > %s" % (pmparins[i], pmparout))
-        [ra, error_ra, dec, error_dec, pmra, error_pmra, pmdec, error_pmdec, px, error_px, rchsq, junk] = readpmparout(pmparout)
-        errors = np.array([error_ra, error_dec, error_pmra, error_pmdec, error_px])
+        [ra, error_ra, dec, error_dec, mu_a, error_mu_a, mu_d, error_mu_d, px, error_px, rchsq, junk] = readpmparout(pmparout)
+        errors = np.array([error_ra, error_dec, error_mu_a, error_mu_d, error_px])
         print(errors, rchsq)
         errors *= rchsq**0.5
         print(errors)
-        error_ra, error_dec, error_pmra, error_pmdec, error_px = errors
+        error_ra, error_dec, error_mu_a, error_mu_d, error_px = errors
         ra_low, ra_up = ra - HMS * error_ra, ra + HMS * error_ra
         dec_low, dec_up = dec - HMS * error_dec, dec + HMS * error_dec
-        pmra_low, pmra_up = pmra - HMS * error_pmra, pmra + HMS * error_pmra
-        pmdec_low, pmdec_up = pmdec - HMS * error_pmdec, pmdec + HMS * error_pmdec
+        mu_a_low, mu_a_up = mu_a - HMS * error_mu_a, mu_a + HMS * error_mu_a
+        mu_d_low, mu_d_up = mu_d - HMS * error_mu_d, mu_d + HMS * error_mu_d
         px_low, px_up = px - HMS * error_px, px + HMS * error_px
         
         writefile.write('ra%d: %.11f,%.11f\n' % (i, ra_low, ra_up))
         writefile.write('dec%d: %.11f,%.11f\n' % (i, dec_low, dec_up))
         if 'mu_a' in unshares:
-            writefile.write('mu_a%d: %f,%f\n' % (i, pmra_low, pmra_up))
+            writefile.write('mu_a%d: %f,%f\n' % (i, mu_a_low, mu_a_up))
         else:
-            writefile.write('mu_a: %f,%f\n' % (pmra_low, pmra_up))
+            writefile.write('mu_a: %f,%f\n' % (mu_a_low, mu_a_up))
         if 'mu_d' in unshares:
-            writefile.write('mu_d%d: %f,%f\n' % (i, pmdec_low, pmdec_up))
+            writefile.write('mu_d%d: %f,%f\n' % (i, mu_d_low, mu_d_up))
         else:
-            writefile.write('mu_d: %f,%f\n' % (pmdec_low, pmdec_up))
+            writefile.write('mu_d: %f,%f\n' % (mu_d_low, mu_d_up))
         if 'px' in unshares:
             writefile.write('px%d: %f,%f\n' % (i, px_low, px_up))
         else:
@@ -211,6 +209,9 @@ def generate_prior_range________________1(pmparin, epoch, HowManySigma=20):
 
 
 def readpmparout(pmparout):
+    """
+    The function serves to offer priors for the simulation.
+    """
     rchsq = 0
     lines = open(pmparout).readlines()
     for line in lines:
@@ -269,7 +270,7 @@ def replace_pmparin_epoch(pmparin, epoch):
 class Gaussianlikelihood(bilby.Likelihood):
     def __init__(self, refepoch, list_of_dict, unshares, positions):
         """
-        A very simple Gaussian likelihood
+        Addition of multiple Gaussian likelihoods
 
         Parameters
         ----------
@@ -408,7 +409,17 @@ def positions(refepoch, epochs, parameter_filter_index, dict_parameters):
     return np.concatenate([ra_models, dec_models])
 def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
     """
-    parameters is a dictionary.
+    Input parameters
+    ----------------
+    dict_of_parameters : dict
+        Dictionary of astrometric parameters.
+    filter_index : int
+        A number (for the pmparin file) used to choose the right paramters for each gaussian distribution.
+
+    Return parameters
+    -----------------
+    filtered_dict_of_parameters : dict
+        Dictionary after the filtering with the filter index.
     """
     filtered_dict_of_parameters = dict_of_parameters.copy()
     for parameter in dict_of_parameters.keys():
@@ -419,7 +430,7 @@ def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
         sys.exit()
     return filtered_dict_of_parameters
 
-def positions1(refepoch, epochs, ra_rad, dec_rad, pmra, pmdec, px):
+def positions________________1(refepoch, epochs, ra_rad, dec_rad, pmra, pmdec, px):
     ra_models = np.array([])
     dec_models = np.array([])
     for i in range(len(epochs)):
@@ -444,9 +455,9 @@ def position(refepoch, epoch, dec_rad, mu_a, mu_d, px, ra_rad):
     dec_rad : rad
         Declination for barycentric frame, in dd:mm:ss.sss;
         Also see inputgeocentricposition.
-    pmra : float
+    mu_a : float
         Proper motion in right ascension, in mas/yr.
-    pmdec : float
+    mu_d : float
         Proper motion in declination, in mas/yr.
     px : float 
         Parallax, in mas.
@@ -480,7 +491,7 @@ def position(refepoch, epoch, dec_rad, mu_a, mu_d, px, ra_rad):
     #print(howfun.deg2dms(ra_rad*180/np.pi/15.), howfun.deg2dms(dec_rad*180/np.pi))
     return  ra_rad, dec_rad #rad
 
-def plot_model_given_astrometric_parameters(refepoch, ra, dec, pmra, pmdec, px, start_epoch, end_epoch,\
+def plot_model_given_astrometric_parameters(refepoch, ra, dec, mu_a, mu_d, px, start_epoch, end_epoch,\
         useDE421=True, inputgeocentricposition=False):
     """
     Input parameters
@@ -497,7 +508,7 @@ def plot_model_given_astrometric_parameters(refepoch, ra, dec, pmra, pmdec, px, 
     ra_rads, dec_rads = np.array([]), np.array([])
     dRA_pxs, dDEC_pxs = np.array([]), np.array([])
     for epoch in epochs:
-        ra_rad, dec_rad = position(refepoch, ra, dec, pmra, pmdec, px, epoch, useDE421, inputgeocentricposition)
+        ra_rad, dec_rad = position(refepoch, epoch, dec, mu_a, mu_d, px, ra, useDE421, inputgeocentricposition)
         dRA_px, dDEC_px = parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px)
         ra_rads = np.append(ra_rads, ra_rad)
         dec_rads = np.append(dec_rads, dec_rad)
