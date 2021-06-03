@@ -25,6 +25,7 @@ def simulate(refepoch, pmparin, *args, **kwargs):
         unshares = kwargs['unshares']
     except KeyError:
         unshares = []
+        
 
     list_of_dict = []
     for pmparin in pmparins:
@@ -59,7 +60,7 @@ def infer_estimates_from_bilby_results(samplefile):
     t = Table.read(samplefile, format='ascii')
     parameters = t.colnames[:-2]
     dict_median = {}
-    dict_bound = {}??????????? #16% and 84% percentiles
+    dict_bound = {} #16% and 84% percentiles
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Units: px in mas, ra and dec in rad, mu_a and mu_d in mas/yr\n')
@@ -74,24 +75,6 @@ def infer_estimates_from_bilby_results(samplefile):
 
 
 
-def simulate________________1(pmparin, refepoch):
-    t = readpmparin(pmparin)
-    radecs = np.concatenate([t['RA'], t['DEC']])
-    errs = np.concatenate([t['errRA'], t['errDEC']])
-    epochs = np.array(t['epoch'])
-    likelihood = Gaussianlikelihood(refepoch, epochs, radecs, errs, positions)
-    initsfile = pmparin.replace('pmpar.in', 'inits')
-    generate_prior_range(pmparin, refepoch)
-    limits = read_inits(initsfile)
-    priors = dict(px=bilby.core.prior.Uniform(limits['px'][0],limits['px'][1],'px'),
-                  pmra=bilby.core.prior.Uniform(limits['mu_a'][0],limits['mu_a'][1],'pmra'),
-                  pmdec=bilby.core.prior.Uniform(limits['mu_d'][0],limits['mu_d'][1],'pmdec'),
-                  ra_rad=bilby.core.prior.Uniform(limits['ra'][0], limits['ra'][1],'ra_rad'),
-                  dec_rad=bilby.core.prior.Uniform(limits['dec'][0], limits['dec'][1],'dec_rad'))
-    result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
-        sampler='emcee', nwalkers=500, iterations=1000)
-    result.plot_corner()
-    result.save_posterior_samples()
 
 def __________get_a_prior(chain, HowManyTimesStd=20):
     """
@@ -122,19 +105,6 @@ def read_inits(initsfile):
                 dict_limits[parameter] = limits
     return dict_limits 
 
-def read_inits________________1(initsfile):
-    #initsfile = pmparin.replace('pmpar.in', 'inits')
-    readfile = open(initsfile, 'r')
-    lines = readfile.readlines()
-    readfile.close()
-    dict_limits = {}
-    for line in lines:
-        for parameter in ['ra', 'dec', 'mu_a', 'mu_d', 'px']:
-            if parameter in line:
-                limits = line.split(':')[-1].strip().split(',')
-                limits = [float(limit) for limit in limits]
-                dict_limits[parameter] = limits
-    return dict_limits 
 
 def generate_prior_range(pmparins, unshares, epoch, HowManySigma=20):
     """
@@ -179,33 +149,6 @@ def generate_prior_range(pmparins, unshares, epoch, HowManySigma=20):
             writefile.write('px: %f,%f\n' % (px_low, px_up))
     writefile.close()
 
-def generate_prior_range________________1(pmparin, epoch, HowManySigma=20):
-    HMS = HowManySigma
-    pmparout = pmparin.replace('pmpar.in','pmpar.out')
-    inits = pmparin.replace('pmpar.in','inits')
-    replace_pmparin_epoch(pmparin, epoch)
-    os.system("pmpar %s > %s" % (pmparin, pmparout))
-    [ra, error_ra, dec, error_dec, pmra, error_pmra, pmdec, error_pmdec, px, error_px, rchsq, junk] = readpmparout(pmparout)
-    errors = np.array([error_ra, error_dec, error_pmra, error_pmdec, error_px])
-    print(errors, rchsq)
-    errors *= rchsq**0.5
-    print(errors)
-    error_ra, error_dec, error_pmra, error_pmdec, error_px = errors
-    ra_low, ra_up = ra - HMS * error_ra, ra + HMS * error_ra
-    dec_low, dec_up = dec - HMS * error_dec, dec + HMS * error_dec
-    pmra_low, pmra_up = pmra - HMS * error_pmra, pmra + HMS * error_pmra
-    pmdec_low, pmdec_up = pmdec - HMS * error_pmdec, pmdec + HMS * error_pmdec
-    px_low, px_up = px - HMS * error_px, px + HMS * error_px
-    writefile = open(inits, 'w')
-    writefile.write('#Prior info at MJD %f.\n' % epoch)
-    writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
-    writefile.write('#The prior info is based on the pmpar results.\n')
-    writefile.write('ra: %.11f,%.11f\n' % (ra_low, ra_up))
-    writefile.write('dec: %.11f,%.11f\n' % (dec_low, dec_up))
-    writefile.write('mu_a: %f,%f\n' % (pmra_low, pmra_up))
-    writefile.write('mu_d: %f,%f\n' % (pmdec_low, pmdec_up))
-    writefile.write('px: %f,%f\n' % (px_low, px_up))
-    writefile.close()
 
 
 def readpmparout(pmparout):
@@ -278,9 +221,6 @@ class Gaussianlikelihood(bilby.Likelihood):
             The data to analyse
         """
         self.refepoch = refepoch
-        #self.epochs = epochs
-        #self.radecs = radecs
-        #self.errs = errs
         self.list_of_dict = list_of_dict
         self.positions = positions
         self.number_of_pmparins = len(self.list_of_dict)
@@ -313,87 +253,6 @@ class Gaussianlikelihood(bilby.Likelihood):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-class Gaussianlikelihood_____________1(bilby.Likelihood):
-    def __init__(self, refepoch, epochs, radecs, errs, positions):
-        """
-        A very simple Gaussian likelihood
-
-        Parameters
-        ----------
-        data: array_like
-            The data to analyse
-        """
-        self.refepoch = refepoch
-        self.epochs = epochs
-        self.radecs = radecs
-        self.errs = errs
-        self.positions = positions
-
-        #parameters = inspect.getargspec(positions).args
-        #parameters.pop(0)
-        parameters = {'ra_rad':None, 'dec_rad':None, 'pmra':None, 'pmdec':None,\
-            'px':None}
-        super().__init__(parameters)
-
-    def log_likelihood(self):
-        """
-        the name has to be log_likelihood, and the PDF has to do the log calculation.
-        """
-        res = self.radecs - self.positions(self.refepoch, self.epochs, **self.parameters)
-        log_p = -0.5 * np.sum((res/self.errs)**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
-        return log_p
-
-
-
-
-
-
-
-    def log_likelihood_1(self):
-        """
-        the name has to be log_likelihood, and the PDF has to do the log calculation.
-        """
-        #D = self.parameters['D']
-        #log_p = -0.5*((1./D-self.parallax)/self.parallax_error)**2
-        #return log_p
-        px = self.parameters['px']
-        pmra = self.parameters['pmra']
-        pmdec = self.parameters['pmdec']
-        for i in range(self.table_numbers):
-            exec("ra%d = self.parameters['ra%d']" % (i,i))
-            exec("dec%d = self.parameters['dec%d']" % (i,i))
-        log_p = 0
-        for t in self.input_tables:
-            for i in range(len(t)):
-                epoch_obs = t['epoch'][i]
-                ra_obs = t['RA'][i] #in rad
-                errRA_obs = t['errRA'][i] #in mas
-                dec_obs = t['DEC'][i] #in rad
-                errDEC_obs = t['errDEC'][i] #in mas
-                exec("ra_model, dec_model = cal.position(self.refepoch, ra%d, dec%d, pmra, pmdec, px, epoch_obs, self.useDE421, self.inputgeocentricposition)" % (i,i))
-                print("ra_model, dec_model = cal.position(self.refepoch, \
-                    ra%d, dec%d, pmra, pmdec, px, epoch_obs,\
-                    self.useDE421, self.inputgeocentricposition)" % (i,i))
-                dRA = (ra_obs - ra_model) * np.cos(dec_obs) * (u.rad).to(u.mas)
-                dDEC = (dec_obs - dec_model) * (u.rad).to(u.mas)
-                log_p += -0.5*(dRA/errRA_obs)**2 - 0.5*(dDEC/errDEC_obs)**2
-        return log_p
-
-
-
 def positions(refepoch, epochs, parameter_filter_index, dict_parameters):
     FP = filter_dictionary_of_parameter_with_index(dict_parameters, parameter_filter_index)
     Ps = list(FP.keys())
@@ -401,7 +260,6 @@ def positions(refepoch, epochs, parameter_filter_index, dict_parameters):
     ra_models = np.array([])
     dec_models = np.array([])
     for i in range(len(epochs)):
-        #exec("ra_model, dec_model = position(refepoch, epochs[i], %s, %s, %s, %s, %s)" % (FP[0], FP[1], FP[2], FP[3], FP[4]))
         ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[0]],\
             FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]])
         ra_models = np.append(ra_models, ra_model)
@@ -430,14 +288,6 @@ def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
         sys.exit()
     return filtered_dict_of_parameters
 
-def positions________________1(refepoch, epochs, ra_rad, dec_rad, pmra, pmdec, px):
-    ra_models = np.array([])
-    dec_models = np.array([])
-    for i in range(len(epochs)):
-        ra_model, dec_model = position(refepoch, epochs[i], ra_rad, dec_rad, pmra, pmdec, px)
-        ra_models = np.append(ra_models, ra_model)
-        dec_models = np.append(dec_models, dec_model)
-    return np.concatenate([ra_models, dec_models])
 
 
 def position(refepoch, epoch, dec_rad, mu_a, mu_d, px, ra_rad):
