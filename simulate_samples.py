@@ -10,24 +10,66 @@ from astropy import constants
 import os, sys
 import howfun
 from astropy.table import Table
+import reflex_motion
 #from sterne.model.calculate as position
 def simulate(refepoch, pmparin, *args, **kwargs):
     """
-    args for more pmparin files.
-    kwargs for unshare (unshare parameters).
+    Note
+    ----
+    args : 
+        1) to provide one parfile (or more) and more pmparin files.
+        2) the order of args should be either pmparin1, parfile1, pmparin2, parfile2,...,
+        3) only when a parfile is provided for a pmparin will reflex_motion be provoked to 
+            estimate related position offset. In case where reflex_motion is not required,
+            please provide '' for parfile.
+        4) an example for two pulsars in a globular cluster: simulate(57444, pmparin1, '',\
+            pmparin2, parfile2).
+        5) Naming convention :
+            pmparin needs to contain '.pmpar.in', and parfile needs to end with '.par'\
+            or equal to ''. However, an arg both containing '.pmpar.in' and ending with\
+            '.par' should be avoided.
+    kwargs :
+        for unshare (unshare parameters).
+    initsfile :
+        Due to the need for shared parameters (e.g. parallax or proper motion, or both) to fit,\
+        only one initsfile is used for all pmparins. However, in no case will Om_asc or incl\
+        to become the shared parameter to fit.
+
     """
     args = list(args)
     args.reverse()
     args.append(pmparin)
     args.reverse() #put the major pmparin at first
-    pmparins = args
+    pmparins, parfiles = [], []
+    for arg in args:
+        if ('.pmpar.in') in arg and arg.endswith('.par'):
+            print('arg does not follow naming convention,\
+                please follow the docstring! Aborting.')
+            sys.exit()
+        elif '.pmpar.in' in arg and (not arg.endswith('.par')):
+            pmparins.append(arg)
+        elif (arg.endswith('.par') or arg=='') and (not '.pmpar.in' in arg):
+            parfiles.append(arg)
+    if len(pmparins) != len(parfiles):
+        print('Unequal number of parfiles provided for pmparins.\
+            See the docstring for more info. Aborting now.')
+        sys.exit()
+    print(pmparins, parfiles)
     try:
         unshares = kwargs['unshares']
     except KeyError:
         unshares = []
-        
 
-    list_of_dict = []
+    list_of_dict_timing = []
+    for parfile in parfiles:
+        if parfile != '':
+            dict_of_timing_parameters = reflex_motion.read_parfile(parfile)
+        else:
+            dict_of_timing_parameters = {}
+        list_of_dict_timing.append(dict_of_timing_parameters)
+    print(list_of_dict_timing)
+
+    list_of_dict_VLBI = []
     for pmparin in pmparins:
         t = readpmparin(pmparin)
         radecs = np.concatenate([t['RA'], t['DEC']])
@@ -37,10 +79,10 @@ def simulate(refepoch, pmparin, *args, **kwargs):
         dictionary['epochs'] = epochs
         dictionary['radecs'] = radecs
         dictionary['errs'] = errs
-        list_of_dict.append(dictionary)
+        list_of_dict_VLBI.append(dictionary)
     print(unshares)
-    print(list_of_dict)
-    likelihood = Gaussianlikelihood(refepoch, list_of_dict, unshares, positions)
+    print(list_of_dict_VLBI)
+    likelihood = Gaussianlikelihood(refepoch, list_of_dict_VLBI, unshares, positions, list_of_dict_timing, reflex_motion.reflex_motions)
     initsfile = pmparins[0].replace('pmpar.in', 'inits')
     #if not os.path.exists(initsfile):
     #    generate_prior_range(pmparin, refepoch)
@@ -52,7 +94,7 @@ def simulate(refepoch, pmparin, *args, **kwargs):
         priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
             maximum=limits[parameter][1], name=parameter, latex_label=parameter)
     result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
-        sampler='emcee', nwalkers=100, iterations=100)
+        sampler='emcee', nwalkers=100, iterations=1000)
     result.plot_corner()
     result.save_posterior_samples()
 
@@ -491,166 +533,4 @@ def decyear2mjd(epoch):
         decyear = Time(epoch, format='decimalyear')
         MJD = float(format(decyear.mjd))
         return MJD
-
-def generate_parfile(pulsar):
-    """
-    The parfile generation only works for pulsar listed in PSRCAT.
-    """
-    #os.system("psrcat %s -e > %s" % (pulsar, pulsar+'.par'))
-    parfile = pulsar + '.par'
-    results = os.system("psrcat %s -e > %s" % (pulsar, parfile))
-    readfile = open(parfile, 'r')
-    contents = readfile.read()
-    readfile.close()
-    if ('WARNING' in contents) and ('not in catalogue' in contents):
-        print('Pulsar not found in PSRCAT! Aborting...')
-        sys.exit()
-    else:
-        print('parfile for %s is made.' % pulsar)
-
-def read_parfile(parfile):
-    """
-    Note
-    ----
-    For pulsars listed in PSRCAT, parfile can be made with generate_parfile.
-    For other sources, parfile needs to be prepared by oneself, in accordance\
-    with the format of PSRCAT format.
-    It is always important to update parameters to latest values before using them.
-    
-    Return parameters
-    -----------------
-    dict_parameter : dict ({str:float})
-        Dictionary of parameters including following keys
-        pb - binary orbital period (d);
-        ecc - eccentricity;
-        a1 - projected semi-major axis of orbit (light-second);
-        t0 - epoch of periastron (MJD);
-        om - omega, longitude of periastron (deg);
-        omdot - periastron advance (deg/yr);
-        om_asc - position angle of ascending node (deg);
-        pbdot - first time derivative of orbital period (s/s);
-        a1dot - first time derivative of A1 (light-second/s);
-        sini - sine of inclination angle;
-    """
-    readfile = open(parfile, 'r')
-    lines = readfile.readlines()
-    readfile.close()
-    keywords_needed = ['PB ', 'ECC', 'A1 ', 'T0', 'OM ', 'OMDOT', 'OM_ASC', 'PBDOT', 'A1DOT', 'SINI']
-    parameters = [kw.strip().lower() for kw in keywords_needed]
-    dict_parameter = {}
-    for line in lines:
-        for i in range(len(keywords_needed)):
-            if keywords_needed[i] in line:
-                alist = line.split(' '*8)
-                alist = [element.strip() for element in alist]
-                while True:
-                    try:
-                        alist.remove('')
-                    except ValueError:
-                        break
-                dict_parameter[parameters[i]] = float(alist[1])
-    dict_parameter['pb'] *= u.d
-    dict_parameter['a1'] *= constants.c * u.s
-    dict_parameter['t0'] *= u.d
-    dict_parameter['om'] *= u.deg
-    dict_parameter['omdot'] *= u.deg/u.yr
-    dict_parameter['om_asc'] *= u.deg
-    dict_parameter['a1dot'] *= constants.c
-    return dict_parameter
-
-def solve_u(e, c, precision=1e-5):
-    """
-    Solve the equation
-    u - e * sin(u) = c
-    in a numerical way.
-    Here, c stands for a constant not relevant to speed of light;
-    e stands for eccentricity.
-
-    Return parameters
-    -----------------
-    u : float
-    iterations : int
-    """
-    x = c/(1-e) #first order approximation: sin(u) = u
-    x1 = float('inf')
-    iterations = 0
-    while abs(x - x1) > precision:
-        x1 = x
-        x = e * np.sin(x1) + c
-        iterations += 1
-    return x, iterations
-
-def reflex_motion(epoch, dict_of_orbital_parameters, incl=85.29, Om_asc=190, px=3.73):
-    """
-    Following mathematical formalism detailed in Eqn 55 through 63 
-        in the Tempo2 paper (ref1).
-
-    Caveats
-    -------
-    1. Time derivative of eccentricity is not taken into account.
-    2. Two differently formulated A_u in Eqn 57 and Eqn 58 is considered the same.
-    3. Relativistic deformations of the eccentricity, given by Eqn 59 and 60, is
-        not taken into account.
-
-
-    Input paramters
-    ---------------
-    epoch : float
-        in MJD.
-    dict_of_orbital_parameters : dict
-        See the function read_parfile()
-    incl : float
-        Inclination angle (deg).
-    Om_asc : float
-        Position angle of ascending node (deg).
-    px : float
-        Parallax (mas).
-
-    Return parameters
-    -----------------
-    dRA : float
-        Reflex-motion-related right ascension offset, corresponding to the vector e1
-        in Eqn 54.
-    dDEC : float
-        Reflex-motion-related declination offset, corresponding to the vector e2
-        in Eqn 54.
-
-    Reference
-    ---------
-    1. Edwards, Hobbs and Manchester 2006 (2006MNRAS.372.1549E). 
-    """
-    DoP = dict_of_orbital_parameters
-    epoch *= u.d
-    incl *= u.deg
-    Om_asc *= u.deg
-    e, T0, Pb0, Pbdot, omega0, omdot, a0, adot = DoP['ecc'], DoP['t0'],\
-        DoP['pb'], DoP['pbdot'], DoP['om'], DoP['omdot'], DoP['a1'], DoP['a1dot']
-
-    n = (2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2)) * u.rad #angular velocity
-    #n = 2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2) #angular velocity
-    u1 = solve_u(e, (n*(epoch-T0)).value)[0] #u1 stands for u, not to clash with u=astropy.units
-    #u1 *= u.rad
-    A_u = u.rad * 2* np.arctan(((1+e)/(1-e))**2 * np.tan(u1/2))
-    k = omdot/n
-    omega = omega0 + k * A_u
-    theta = omega + A_u
-    a1 = a0 + adot * (epoch - T0) #equivalent to Eqn 71
-    b_abs = a1 * (1 - e * np.cos(u1))
-    b_AU = b_abs.to(u.AU).value
-    offset = b_AU * px
-    matr1 = np.mat([[np.sin(Om_asc), -np.cos(Om_asc), 0],
-                    [np.cos(Om_asc), np.sin(Om_asc), 0],
-                    [0, 0, 1]])
-    matr2 = np.mat([[1, 0, 0],
-                    [0, -np.cos(incl), -np.sin(incl)],
-                    [0, np.sin(incl), -np.cos(incl)]])
-    matr3 = np.mat([[offset*np.cos(theta)],
-                    [offset*np.sin(theta)],
-                    [0]])
-    b = matr1 * matr2 * matr3
-    dRA = b.item(0,0)
-    dDEC = b.item(1,0)
-    return dRA, dDEC #in mas
-
-    
 
