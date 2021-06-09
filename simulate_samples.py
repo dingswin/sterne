@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
-written in python3.
+sterne.simulate_samples.py is written in python3 by Hao Ding.
+The main code to run is simulate().
 """
 import bilby, inspect
 from astropy.time import Time
@@ -11,55 +12,96 @@ import os, sys
 import howfun
 from astropy.table import Table
 import reflex_motion
-#from sterne.model.calculate as position
-def simulate(refepoch, pmparin, *args, **kwargs):
+import novas.compat.solsys as solsys
+from novas.compat.eph_manager import ephem_open
+def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """
-    Note
-    ----
-    args : 
-        1) to provide one parfile (or more) and more pmparin files.
-        2) the order of args should be either pmparin1, parfile1, pmparin2, parfile2,...,
-        3) only when a parfile is provided for a pmparin will reflex_motion be provoked to 
+    Input parameters
+    ----------------
+    refepoch : float
+        Reference epoch (MJD).
+    initsfile : str
+        A file ending with '.inits' that contains priors of parameters to fit. initsfile\
+        should be pre-made. It can be made with generate_initsfile(). Priors in initsfile\
+        need to be updated before running simulate().
+    pmparin : str
+        A file ending with '.pmpar.in' which contains observed position info.
+    parfile : str
+        A parfile ending with '.par' which contains orbital info for a pulsar binary system.
+        parfiles should be pre-made. 
+        1) Each parfile can be made with 'psrcat -e PULSARNAME > PARFILENAME',\
+            using the PSRCAT catalog. Om_asc and incl in parfiles are so far unused.\
+            The timing parameters offered in parfiles should be updated before use.
+        2) Only when a parfile is provided for a pmparin will reflex_motion be provoked to 
             estimate related position offset. In case where reflex_motion is not required,
-            please provide '' for parfile.
-        4) an example for two pulsars in a globular cluster: simulate(57444, pmparin1, '',\
-            pmparin2, parfile2).
-        5) Naming convention :
-            pmparin needs to contain '.pmpar.in', and parfile needs to end with '.par'\
-            or equal to ''. However, an arg both containing '.pmpar.in' and ending with\
-            '.par' should be avoided.
-    kwargs :
-        for unshare (unshare parameters).
-    initsfile :
-        Due to the need for shared parameters (e.g. parallax or proper motion, or both) to fit,\
-        only one initsfile is used for all pmparins. However, in no case will Om_asc or incl\
-        to become the shared parameter to fit.
+            please provide '' for parfile. By doing so, reflex_motion will be turned off,\
+            even when the correspoinding shares indice are >=0.
+    args : str(s)
+        1) to provide extra pmparin files and parfiles.
+        2) the order of args should be either pmparin1, parfile1, pmparin2, parfile2,....
+        3) an example for two pulsars in a globular cluster: 
+        4) an arg both containing '.pmpar.in' and ending with '.par' should be avoided. 
+    kwargs : key=value
+        1) shares : 2-D array 
+            Used to assign shared parameters to fit and which paramters to not fit.\
+            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',\
+            'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number\
+            of pmparins. As an example, for four pmparins, shares can be\
+            [[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]]. Same\
+            numbers in the same row shares the same parallax (e.g. 'px' is shared by all\
+            pmparins). Furthermore, if shares[i][j]<0, it means the inference for\
+            parameter[i] with pmparins[j] is turned off. This turn-off function is not so\
+            useful now, but may be helpful in future.
+            Default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))].
 
+    ** Examples ** :
+        1) For two pulsars in a globular cluster:
+            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],[-1,0],\
+                [0,1], [0,1],[-1,0],[0,0],[0,1]])
+        2) For a pulsar with two in-beam calibrators:
+            simulate(57444,'a.inits','i1.pmpar.in','p.par','i2.pmpar.in','p.par',\
+                shares=[[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
+        3) For two pulsars in a globular cluster sharing an in-beam calibrator:
+            simulate(57444,'a.inits','i1p1.pmpar.in', '', 'i2p1.pmpar.in','', 'i1p2.pmpar.in',\
+                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[0,0,1,1],[1,1,2,2],\
+                [1,1,2,2],[0,0,1,1],[1,1,1,1],[1,2,3,4]])
     """
+    ##############################################################
+    ############ parse args to get pmparins, parfiles ############
+    ##############################################################
+    if not os.path.exists(initsfile):
+        print('%s does not exist; aborting' % initsfile)
+        sys.exit()
     args = list(args)
     args.reverse()
+    args.append(parfile)
     args.append(pmparin)
     args.reverse() #put the major pmparin at first
     pmparins, parfiles = [], []
     for arg in args:
-        if ('.pmpar.in') in arg and arg.endswith('.par'):
+        if ('.pmpar.in' in arg) and arg.endswith('.par'):
             print('arg does not follow naming convention,\
                 please follow the docstring! Aborting.')
             sys.exit()
-        elif '.pmpar.in' in arg and (not arg.endswith('.par')):
+        elif '.pmpar.in' in arg:
             pmparins.append(arg)
-        elif (arg.endswith('.par') or arg=='') and (not '.pmpar.in' in arg):
+        elif arg.endswith('.par') or arg=='':
             parfiles.append(arg)
-    if len(pmparins) != len(parfiles):
+    NoP = len(pmparins)
+    if NoP != len(parfiles):
         print('Unequal number of parfiles provided for pmparins.\
             See the docstring for more info. Aborting now.')
         sys.exit()
-    print(pmparins, parfiles)
     try:
-        unshares = kwargs['unshares']
+        shares = kwargs['shares']
     except KeyError:
-        unshares = []
-
+        shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
+            [0]*NoP, list(range(NoP))]
+    
+    print(pmparins, parfiles, initsfile, shares)
+    ##############################################################
+    #################  get two list_of_dict ######################
+    ##############################################################
     list_of_dict_timing = []
     for parfile in parfiles:
         if parfile != '':
@@ -80,13 +122,17 @@ def simulate(refepoch, pmparin, *args, **kwargs):
         dictionary['radecs'] = radecs
         dictionary['errs'] = errs
         list_of_dict_VLBI.append(dictionary)
-    print(unshares)
     print(list_of_dict_VLBI)
-    likelihood = Gaussianlikelihood(refepoch, list_of_dict_VLBI, unshares, positions, list_of_dict_timing, reflex_motion.reflex_motions)
-    initsfile = pmparins[0].replace('pmpar.in', 'inits')
+    
+    ##############################################################
+    ###################### run simulations #######################
+    ##############################################################
+    likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
+        shares, positions)
+    #initsfile = pmparins[0].replace('pmpar.in', 'inits')
     #if not os.path.exists(initsfile):
-    #    generate_prior_range(pmparin, refepoch)
-    generate_prior_range(pmparins, unshares, refepoch, 20)
+    #    generate_initsfile(pmparin, refepoch)
+    #generate_initsfile(refepoch, pmparins, parfiles, shares, 20)
     limits = read_inits(initsfile)
     print(limits)
     priors = {}
@@ -121,7 +167,7 @@ def infer_estimates_from_bilby_results(samplefile):
 def __________get_a_prior(chain, HowManyTimesStd=20):
     """
     deprecated.
-    prior for ra and dec is set using generate_prior_range() now.
+    prior for ra and dec is set using generate_initsfile() now.
     """
     chain_average = np.mean(chain)
     chain_std = np.std(chain)
@@ -136,32 +182,31 @@ def read_inits(initsfile):
     readfile.close()
     dict_limits = {}
     for line in lines:
-        for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px']:
-            if keyword in line:
-                parameter = line.split(':')[0].strip()
-                limits = line.split(':')[-1].strip().split(',')
-                limits = [float(limit) for limit in limits]
-                if parameter in dict_limits.keys():
-                    limits[0] = min(limits[0], dict_limits[parameter][0])
-                    limits[1] = max(limits[1], dict_limits[parameter][1])
-                dict_limits[parameter] = limits
+        if not line.startswith('#'):
+            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
+                if keyword in line:
+                    parameter = line.split(':')[0].strip()
+                    limits = line.split(':')[-1].strip().split(',')
+                    limits = [float(limit.strip()) for limit in limits]
+                    dict_limits[parameter] = limits
     return dict_limits 
 
 
-def generate_prior_range(pmparins, unshares, epoch, HowManySigma=20):
+def ________generate_initsfile(refepoch, pmparins, parfiles, shares, HowManySigma=20):
     """
+    Used to generate initsfile.
     Common parameters might have more than 1 list of priors.
     In such cases, the larger outer bound will be adopted.
     """
     HMS = HowManySigma
     inits = pmparins[0].replace('pmpar.in','inits')
     writefile = open(inits, 'w')
-    writefile.write('#Prior info at MJD %f.\n' % epoch)
+    writefile.write('#Prior info at MJD %f.\n' % refepoch)
     writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
     writefile.write('#The prior info is based on the pmpar results.\n')
     for i in range(len(pmparins)):
         pmparout = pmparins[i].replace('pmpar.in','pmpar.out')
-        replace_pmparin_epoch(pmparins[i], epoch)
+        replace_pmparin_refepoch(pmparins[i], refepoch)
         os.system("pmpar %s > %s" % (pmparins[i], pmparout))
         [ra, error_ra, dec, error_dec, mu_a, error_mu_a, mu_d, error_mu_d, px, error_px, rchsq, junk] = readpmparout(pmparout)
         errors = np.array([error_ra, error_dec, error_mu_a, error_mu_d, error_px])
@@ -177,21 +222,113 @@ def generate_prior_range(pmparins, unshares, epoch, HowManySigma=20):
         
         writefile.write('ra%d: %.11f,%.11f\n' % (i, ra_low, ra_up))
         writefile.write('dec%d: %.11f,%.11f\n' % (i, dec_low, dec_up))
-        if 'mu_a' in unshares:
-            writefile.write('mu_a%d: %f,%f\n' % (i, mu_a_low, mu_a_up))
-        else:
+        if 'mu_a' in shares:
             writefile.write('mu_a: %f,%f\n' % (mu_a_low, mu_a_up))
-        if 'mu_d' in unshares:
-            writefile.write('mu_d%d: %f,%f\n' % (i, mu_d_low, mu_d_up))
         else:
+            writefile.write('mu_a%d: %f,%f\n' % (i, mu_a_low, mu_a_up))
+        if 'mu_d' in shares:
             writefile.write('mu_d: %f,%f\n' % (mu_d_low, mu_d_up))
-        if 'px' in unshares:
-            writefile.write('px%d: %f,%f\n' % (i, px_low, px_up))
         else:
+            writefile.write('mu_d%d: %f,%f\n' % (i, mu_d_low, mu_d_up))
+        if 'px' in shares:
             writefile.write('px: %f,%f\n' % (px_low, px_up))
+        else:
+            writefile.write('px%d: %f,%f\n' % (i, px_low, px_up))
     writefile.close()
 
+def create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma=20):
+    """
+    do not cover 'incl' and 'om_asc'.
+    """
+    HMS = HowManySigma
+    roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
+    dec_lows, dec_ups, mu_a_lows, mu_a_ups, mu_d_lows, mu_d_ups,\
+        px_lows, px_ups, ra_lows, ra_ups = [], [], [], [], [],\
+        [],[],[],[],[]
+    for i in range(len(pmparins)):
+        pmparout = pmparins[i].replace('pmpar.in','pmpar.out')
+        replace_pmparin_refepoch(pmparins[i], refepoch)
+        os.system("pmpar %s > %s" % (pmparins[i], pmparout))
+        [ra, error_ra, dec, error_dec, mu_a, error_mu_a, mu_d, error_mu_d, px, error_px, rchsq, junk] = readpmparout(pmparout)
+        errors = np.array([error_ra, error_dec, error_mu_a, error_mu_d, error_px])
+        print(errors, rchsq)
+        errors *= rchsq**0.5
+        print(errors)
+        error_ra, error_dec, error_mu_a, error_mu_d, error_px = errors
+        dec_lows.append(dec - HMS * error_dec)
+        dec_ups.append(dec + HMS * error_dec)
+        mu_a_lows.append(mu_a - HMS * error_mu_a)
+        mu_a_ups.append(mu_a + HMS * error_mu_a)
+        mu_d_lows.append(mu_d - HMS * error_mu_d)
+        mu_d_ups.append(mu_d + HMS * error_mu_d)
+        px_lows.append(px - HMS * error_px)
+        px_ups.append(px + HMS * error_px)
+        ra_lows.append(ra - HMS * error_ra)
+        ra_ups.append(ra + HMS * error_ra)
+    dec_limits, mu_a_limits, mu_d_limits, px_limits, ra_limits = {},{},{},{},{}
+    dec_limits['low'], dec_limits['up'] = dec_lows, dec_ups
+    mu_a_limits['low'], mu_a_limits['up'] = mu_a_lows, mu_a_ups
+    mu_d_limits['low'], mu_d_limits['up'] = mu_d_lows, mu_d_ups
+    px_limits['low'], px_limits['up'] = px_lows, px_ups
+    ra_limits['low'], ra_limits['up'] = ra_lows, ra_ups
+    dict_limits = {}
+    for root in roots:
+        exec("dict_limits[root] = %s_limits" % root)
+    return dict_limits
+    
+def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20):
+    """
+    Used to generate initsfile.
+    Common parameters might have more than 1 list of priors.
+    In such cases, the larger outer bound will be adopted.
+    """
+    HMS = HowManySigma
+    roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
+    dict_limits = create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma)
+    parameters = get_parameters_from_shares(shares)
+    inits = pmparins[0].replace('pmpar.in','inits')
+    writefile = open(inits, 'w')
+    writefile.write('#Prior info at MJD %f.\n' % refepoch)
+    writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
+    writefile.write('#The prior info is based on the pmpar results.\n')
+    writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl and om_asc in deg.\n')
+    writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
+    for parameter in parameters.keys():
+        if (not 'om_asc' in parameter) and (not 'incl' in parameter):
+            related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
+            lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
+            writefile.write('%s: %.11f,%.11f\n' % (parameter, lower_limit, upper_limit))
+        else:
+            writefile.write('%s: 0,360\n' % parameter)
+    writefile.close()
 
+def render_parameter_boundaries(parameter, dict_limits):
+    """
+    use the minimum and maximum value for parameters calculated from the relevant pmparins
+    """
+    related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
+    lows, ups = [], []
+    for i in related_pmparins_indice:
+        lows.append(dict_limits[root]['low'][i])
+        ups.append(dict_limits[root]['up'][i])
+    lower_limit, upper_limit = min(lows), max(ups)
+    return lower_limit, upper_limit
+    
+def parameter_name_to_pmparin_indice(string):
+    """
+    Example :
+        input 'mu_a_0_2_3' --> out: ([0,2,3], 'mu_a')
+    """
+    alist = string.split('_')
+    pmparin_indice = []
+    parameter_root = []
+    for element in alist:
+        try:
+            pmparin_indice.append(int(element))
+        except ValueError:
+            parameter_root.append(element)
+    parameter_root = '_'.join(parameter_root)
+    return pmparin_indice, parameter_root
 
 def readpmparout(pmparout):
     """
@@ -238,22 +375,22 @@ def readpmparout(pmparout):
     
 
 
-def replace_pmparin_epoch(pmparin, epoch):
+def replace_pmparin_refepoch(pmparin, refepoch):
     """
-    epoch in MJD
+    refepoch in MJD
     """
     readfile = open(pmparin, 'r')
     lines = readfile.readlines()
     for i in range(len(lines)):
         if 'epoch' in lines[i] and (not lines[i].strip().startswith('#')):
-            lines[i] = 'epoch = ' + str(epoch) + '\n'
+            lines[i] = 'epoch = ' + str(refepoch) + '\n'
     readfile.close()
     writefile = open(pmparin, 'w')
     writefile.writelines(lines)
     writefile.close()
 
 class Gaussianlikelihood(bilby.Likelihood):
-    def __init__(self, refepoch, list_of_dict, unshares, positions):
+    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions):
         """
         Addition of multiple Gaussian likelihoods
 
@@ -263,22 +400,15 @@ class Gaussianlikelihood(bilby.Likelihood):
             The data to analyse
         """
         self.refepoch = refepoch
-        self.list_of_dict = list_of_dict
+        self.LoD_VLBI = list_of_dict_VLBI
+        self.LoD_timing = list_of_dict_timing
         self.positions = positions
-        self.number_of_pmparins = len(self.list_of_dict)
+        self.shares = shares
+        self.number_of_pmparins = len(self.LoD_VLBI)
 
         #parameters = inspect.getargspec(positions).args
         #parameters.pop(0)
-        parameters = {}
-        for parameter in ['mu_a', 'mu_d', 'px']:
-            if not parameter in unshares:
-                parameters[parameter] = None
-        for i in range(self.number_of_pmparins):
-            exec("parameters['ra%d'] = None" % i)
-            exec("parameters['dec%d'] = None" % i)
-            for parameter in unshares:
-                exec("parameters['%s%d'] = None" % (parameter ,i))
-
+        parameters = get_parameters_from_shares(self.shares)
         print(parameters)
         super().__init__(parameters)
 
@@ -288,14 +418,50 @@ class Gaussianlikelihood(bilby.Likelihood):
         """
         log_p = 0
         for i in range(self.number_of_pmparins):
-            res = self.list_of_dict[i]['radecs'] - self.positions(self.refepoch, self.list_of_dict[i]['epochs'], i, self.parameters)
-            log_p += -0.5 * np.sum((res/self.list_of_dict[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+            res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
+            log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
         return log_p
+    
+
+def get_parameters_from_shares(shares):
+    parameters = {}
+    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    NoP = number_of_pmparins = len(shares[0])
+    for i in range(7):
+        list_of_strings = group_elements_by_same_values(shares[i])
+        for string in list_of_strings:
+            parameter = roots[i] + string
+            parameters[parameter] = None
+    return parameters
+def group_elements_by_same_values(alist):
+    """
+    Input parameters
+    ----------------
+    alist : list of int
+
+    Return parameters
+    -----------------
+    
+    """
+    LoS = list_of_string = []
+    alist = np.array(alist)
+    GEI = grouped_element_indice = []
+    N = len(alist)
+    for i in range(len(alist)):
+        if (not i in GEI) and (alist[i]>=0):
+            each_group = np.where(alist==alist[i])[0]
+            each_group = each_group.tolist()
+            GEI += each_group
+            each_group.sort()
+            each_group = [str(element) for element in each_group]
+            str_of_group = '_' + '_'.join(each_group)
+            LoS.append(str_of_group)
+    return LoS
 
 
 
 
-def positions(refepoch, epochs, parameter_filter_index, dict_parameters):
+def ________positions(refepoch, epochs, parameter_filter_index, dict_parameters):
     FP = filter_dictionary_of_parameter_with_index(dict_parameters, parameter_filter_index)
     Ps = list(FP.keys())
     Ps.sort()
@@ -307,7 +473,19 @@ def positions(refepoch, epochs, parameter_filter_index, dict_parameters):
         ra_models = np.append(ra_models, ra_model)
         dec_models = np.append(dec_models, dec_model)
     return np.concatenate([ra_models, dec_models])
-def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
+def positions(refepoch, epochs, list_of_dict_timing, parameter_filter_index, dict_parameters):
+    FP = filter_dictionary_of_parameter_with_index(dict_parameters, parameter_filter_index)
+    Ps = list(FP.keys())
+    Ps.sort()
+    ra_models = np.array([])
+    dec_models = np.array([])
+    for i in range(len(epochs)):
+        ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[0]],\
+            FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], list_of_dict_timing)
+        ra_models = np.append(ra_models, ra_model)
+        dec_models = np.append(dec_models, dec_model)
+    return np.concatenate([ra_models, dec_models])
+def _____________filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
     """
     Input parameters
     ----------------
@@ -331,8 +509,35 @@ def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
     return filtered_dict_of_parameters
 
 
+def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
+    """
+    Input parameters
+    ----------------
+    dict_of_parameters : dict
+        Dictionary of astrometric parameters.
+    filter_index : int
+        A number (for the pmparin file) used to choose the right paramters for each gaussian distribution.
 
-def position(refepoch, epoch, dec_rad, mu_a, mu_d, px, ra_rad):
+    Return parameters
+    -----------------
+    filtered_dict_of_parameters : dict
+        Dictionary after the filtering with the filter index.
+    """
+    filtered_dict_of_parameters = dict_of_parameters.copy()
+    for parameter in dict_of_parameters.keys():
+        if not str(filter_index) in parameter.split('_'):
+            del filtered_dict_of_parameters[parameter]
+    filtered_dict_of_parameters = auto_fill_disabled_parameters(filtered_dict_of_parameters)
+    return filtered_dict_of_parameters
+def auto_fill_disabled_parameters(filtered_dict_of_parameters):
+    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    for root in roots:
+        if not any(root in parameter for parameter in filtered_dict_of_parameters.keys()):
+            filtered_dict_of_parameters[root] = -999
+    return filtered_dict_of_parameters
+
+def position(refepoch, epoch, dec_rad, incl, mu_a, mu_d, om_asc, px, ra_rad,\
+        dict_of_timing_parameters={}):
     """
     Outputs position given reference position, proper motion and parallax 
     (at a reference epoch) and time of interest.
@@ -377,11 +582,47 @@ def position(refepoch, epoch, dec_rad, mu_a, mu_d, px, ra_rad):
     dRA = dT * mu_a / np.cos(dec_rad) # in mas
     dDEC = dT * mu_d #in mas
     ### parallax effect ###
-    dRA, dDEC = np.array([dRA, dDEC]) + parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px)  # in mas
-    ra_rad += dRA * (u.mas).to(u.rad)
-    dec_rad += dDEC * (u.mas).to(u.rad)
+    #dRA, dDEC = np.array([dRA, dDEC])
+    offset = np.array([dRA, dDEC]) #in mas
+    if px != -999:
+        offset += parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px) #in mas
+        if (incl != -999) and (om_asc != -999) and (dict_of_timing_parameters != {}):
+            offset += reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)
+    ra_rad += offset[0] * (u.mas).to(u.rad)
+    dec_rad += offset[1] * (u.mas).to(u.rad)
     #print(howfun.deg2dms(ra_rad*180/np.pi/15.), howfun.deg2dms(dec_rad*180/np.pi))
     return  ra_rad, dec_rad #rad
+def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px):
+    """
+    Originality note
+    ----------------
+    This function is adopted from astrometryfit written by Adam Deller and Scott Ransom.
+
+    Return parameters
+    -----------------
+    np.array([dRA, dDEC])
+        dRA : float
+            Right asension offset, in mas.
+        dDEC : float
+            Declination offset, in mas.
+
+    References
+    ---------
+    1. Explanatory Supplement to Astronomical Almanac.
+    2. NOVAS
+    """
+    #ra, dec = dms2rad(ra, dec) 
+    #if not useDE421:
+    #    ephem_open()
+    #else:
+    ephem_open(os.path.join(os.getenv("TEMPO2"), "T2runtime/ephemeris/DE421.1950.2050"))
+    # This is the Earth position in X, Y, Z (AU) in ICRS wrt SSB 
+    X, Y, Z = solsys.solarsystem(epoch+2400000.5, 3, 0)[0]  
+    #print(X,Y,Z)
+    # Following is from Astronomical Almanac Explanatory Supplement p 125-126
+    dRA = px * (X * np.sin(ra) - Y * np.cos(ra)) / np.cos(dec) #in mas
+    dDEC = px * (X * np.cos(ra) * np.sin(dec) + Y * np.sin(ra) * np.sin(dec) - Z * np.cos(dec)) #in mas
+    return np.array([dRA, dDEC]) #in mas
 
 def plot_model_given_astrometric_parameters(refepoch, ra, dec, mu_a, mu_d, px, start_epoch, end_epoch,\
         useDE421=True, inputgeocentricposition=False):
@@ -456,39 +697,6 @@ def dms2rad(ra, dec):
     dec *= np.pi/180 #in rad
     return ra, dec
     
-def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px):
-    """
-    Originality note
-    ----------------
-    This function is adopted from astrometryfit written by Adam Deller and Scott Ransom.
-
-    Return parameters
-    -----------------
-    np.array([dRA, dDEC])
-        dRA : float
-            Right asension offset, in mas.
-        dDEC : float
-            Declination offset, in mas.
-
-    References
-    ---------
-    1. Explanatory Supplement to Astronomical Almanac.
-    2. NOVAS
-    """
-    import novas.compat.solsys as solsys
-    from novas.compat.eph_manager import ephem_open
-    #ra, dec = dms2rad(ra, dec) 
-    #if not useDE421:
-    #    ephem_open()
-    #else:
-    ephem_open(os.path.join(os.getenv("TEMPO2"), "T2runtime/ephemeris/DE421.1950.2050"))
-    # This is the Earth position in X, Y, Z (AU) in ICRS wrt SSB 
-    X, Y, Z = solsys.solarsystem(epoch+2400000.5, 3, 0)[0]  
-    #print(X,Y,Z)
-    # Following is from Astronomical Almanac Explanatory Supplement p 125-126
-    dRA = px * (X * np.sin(ra) - Y * np.cos(ra)) / np.cos(dec) #in mas
-    dDEC = px * (X * np.cos(ra) * np.sin(dec) + Y * np.sin(ra) * np.sin(dec) - Z * np.cos(dec)) #in mas
-    return np.array([dRA, dDEC]) #in mas
 
 
 

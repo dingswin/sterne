@@ -172,5 +172,5 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl=85.29, Om_asc=190, px=
     b = matr1 * matr2 * matr3
     dRA = (b.item(0,0)/np.cos(dec)).value #that can be directly added to RA
     dDEC = b.item(1,0)
-    return dRA, dDEC #in mas
+    return np.array([dRA, dDEC]) #in mas
 
