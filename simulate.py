@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-sterne.simulate_samples.py is written in python3 by Hao Ding.
+sterne.simulate.py is written in python3 by Hao Ding.
 The main code to run is simulate().
 """
 import bilby, inspect
@@ -20,21 +20,22 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     refepoch : float
         Reference epoch (MJD).
     initsfile : str
-        A file ending with '.inits' that contains priors of parameters to fit. initsfile\
-        should be pre-made. It can be made with generate_initsfile(). Priors in initsfile\
+        A file ending with '.inits' that contains priors of parameters to fit. initsfile 
+        should be pre-made. It can be made with generate_initsfile(). Priors in initsfile 
         need to be updated before running simulate().
     pmparin : str
         A file ending with '.pmpar.in' which contains observed position info.
     parfile : str
         A parfile ending with '.par' which contains orbital info for a pulsar binary system.
         parfiles should be pre-made. 
-        1) Each parfile can be made with 'psrcat -e PULSARNAME > PARFILENAME',\
-            using the PSRCAT catalog. Om_asc and incl in parfiles are so far unused.\
+        1) Each parfile can be made with 'psrcat -e PULSARNAME > PARFILENAME',
+            using the PSRCAT catalog. Om_asc and incl in parfiles are so far unused.
             The timing parameters offered in parfiles should be updated before use.
         2) Only when a parfile is provided for a pmparin will reflex_motion be provoked to 
             estimate related position offset. In case where reflex_motion is not required,
-            please provide '' for parfile. By doing so, reflex_motion will be turned off,\
+            please provide '' for parfile. By doing so, reflex_motion will be turned off,
             even when the correspoinding shares indice are >=0.
+
     args : str(s)
         1) to provide extra pmparin files and parfiles.
         2) the order of args should be either pmparin1, parfile1, pmparin2, parfile2,....
@@ -42,16 +43,16 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         4) an arg both containing '.pmpar.in' and ending with '.par' should be avoided. 
     kwargs : key=value
         1) shares : 2-D array 
-            Used to assign shared parameters to fit and which paramters to not fit.\
-            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',\
-            'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number\
-            of pmparins. As an example, for four pmparins, shares can be\
-            [[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]]. Same\
-            numbers in the same row shares the same parallax (e.g. 'px' is shared by all\
-            pmparins). Furthermore, if shares[i][j]<0, it means the inference for\
-            parameter[i] with pmparins[j] is turned off. This turn-off function is not so\
+            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
+            Used to assign shared parameters to fit and which paramters to not fit.
+            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',
+            'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number
+            of pmparins. As an example, for four pmparins, shares can be
+            [[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]]. Same
+            numbers in the same row shares the same parallax (e.g. 'px' is shared by all
+            pmparins). Furthermore, if shares[i][j]<0, it means the inference for
+            parameter[i] with pmparins[j] is turned off. This turn-off function is not so
             useful now, but may be helpful in future.
-            Default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))].
         2) iterations : float
             'iterations' that will be passed to bilby.run_sampler().
         3) nwalkers : float
@@ -63,14 +64,14 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
     ** Examples ** :
         1) For two pulsars in a globular cluster:
-            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],[-1,0],\
+            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],[-1,0],
                 [0,1], [0,1],[-1,0],[0,0],[0,1]])
         2) For a pulsar with two in-beam calibrators:
-            simulate(57444,'a.inits','i1.pmpar.in','p.par','i2.pmpar.in','p.par',\
+            simulate(57444,'a.inits','i1.pmpar.in','p.par','i2.pmpar.in','p.par',
                 shares=[[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
         3) For two pulsars in a globular cluster sharing an in-beam calibrator:
-            simulate(57444,'a.inits','i1p1.pmpar.in', '', 'i2p1.pmpar.in','', 'i1p2.pmpar.in',\
-                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[0,0,1,1],[1,1,2,2],\
+            simulate(57444,'a.inits','i1p1.pmpar.in', '', 'i2p1.pmpar.in','', 'i1p2.pmpar.in',
+                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[0,0,1,1],[1,1,2,2],
                 [1,1,2,2],[0,0,1,1],[1,1,1,1],[1,2,3,4]])
     """
     ##############################################################
@@ -188,7 +189,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
         writefile.write('%s = %f + %.11f - %.11f\n' % (p, dict_median[p],\
             dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
-    writefile.write('\nchi_square = %f\nreduced_chi_square = %f\n' % (chi_sq, rchsq))
+    writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.close()
 def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median):
     LoD_VLBI, LoD_timing = list_of_dict_VLBI, list_of_dict_timing

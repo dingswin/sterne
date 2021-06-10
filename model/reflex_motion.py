@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-written in python3.
+written in python3 by Hao Ding.
 """
 from astropy.time import Time
 import numpy as np
@@ -31,7 +31,7 @@ def read_parfile(parfile):
     Note
     ----
     For pulsars listed in PSRCAT, parfile can be made with generate_parfile.
-    For other sources, parfile needs to be prepared by oneself, in accordance\
+    For other sources, parfile needs to be prepared by oneself, in accordance
     with the format of PSRCAT format.
     It is always important to update parameters to latest values before using them.
     

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-sterne.simulate_samples.py is written in python3 by Hao Ding.
-The main code to run is simulate().
+sterne.priors.py is written in python3 by Hao Ding.
+The main code to run is generate_initsfile().
 """
 import bilby, inspect
 from astropy.time import Time
@@ -31,7 +31,8 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         incl_prior = kwargs['incl_prior']
     except KeyError:
         incl_prior = [0, 360]
-    inits = pmparins[0].replace('pmpar.in','inits')
+    inits = pmparins[0].replace('.pmpar.in','')
+    inits = inits + '.inits'
     writefile = open(inits, 'w')
     writefile.write('#Prior info at MJD %f.\n' % refepoch)
     writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)

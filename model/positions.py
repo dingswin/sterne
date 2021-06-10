@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
-sterne.simulate_samples.py is written in python3 by Hao Ding.
-The main code to run is simulate().
+written in python3 by Hao Ding.
 """
 import numpy as np
 import astropy.units as u
