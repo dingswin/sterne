@@ -56,6 +56,10 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             'iterations' that will be passed to bilby.run_sampler().
         3) nwalkers : float
             'nwalkers' that will be passed to bilby.run_sampler().
+        4) outdir : float
+            'outdir' that will be passed to run_sampler().
+        5) use_saved_samples : bool
+            If True, run_sampler will be bypassed.
 
     ** Examples ** :
         1) For two pulsars in a globular cluster:
@@ -130,45 +134,73 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     ##############################################################
     ###################### run simulations #######################
     ##############################################################
-    likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
-        shares, positions)
-    #initsfile = pmparins[0].replace('pmpar.in', 'inits')
-    #if not os.path.exists(initsfile):
-    #    generate_initsfile(pmparin, refepoch)
-    #generate_initsfile(refepoch, pmparins, parfiles, shares, 20)
-    limits = read_inits(initsfile)
-    print(limits)
-    priors = {}
-    for parameter in limits.keys():
-        priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
-            maximum=limits[parameter][1], name=parameter, latex_label=parameter)
     try:
-        iterations = kwargs['iterations']
+        outdir = kwargs['outdir']
     except KeyError:
-        iterations = 100
+        outdir = 'outdir'
+    saved_posteriors = outdir + '/posterior_samples.dat'
     try:
-        nwalkers = kwargs['nwalkers']
+        use_saved_samples = kwargs['use_saved_samples']
     except KeyError:
-        nwalkers = 100
-    result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
-        sampler='emcee', nwalkers=nwalkers, iterations=iterations)
-    result.plot_corner()
-    result.save_posterior_samples()
+        use_saved_samples = False
+    if not use_saved_samples:
+        likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
+            shares, positions)
+        #initsfile = pmparins[0].replace('pmpar.in', 'inits')
+        #if not os.path.exists(initsfile):
+        #    generate_initsfile(pmparin, refepoch)
+        #generate_initsfile(refepoch, pmparins, parfiles, shares, 20)
+        limits = read_inits(initsfile)
+        print(limits)
+        priors = {}
+        for parameter in limits.keys():
+            priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
+                maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+        try:
+            iterations = kwargs['iterations']
+        except KeyError:
+            iterations = 100
+        try:
+            nwalkers = kwargs['nwalkers']
+        except KeyError:
+            nwalkers = 100
+        result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
+            sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
+        result.plot_corner()
+        result.save_posterior_samples(filename=saved_posteriors)
+    
+    make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
+        list_of_dict_VLBI, list_of_dict_timing)
 
-def infer_estimates_from_bilby_results(samplefile):
+
+def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
     t = Table.read(samplefile, format='ascii')
     parameters = t.colnames[:-2]
     dict_median = {}
     dict_bound = {} #16% and 84% percentiles
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
-    writefile.write('#Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc and incl in deg.\n')
+    writefile.write('#Medians of the simulated samples:\n')
+    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc and incl in deg.)\n')
     for p in parameters:
         dict_median[p] = howfun.sample2median(t[p])
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
         writefile.write('%s = %f + %.11f - %.11f\n' % (p, dict_median[p],\
             dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+    chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
+    writefile.write('\nchi_square = %f\nreduced_chi_square = %f\n' % (chi_sq, rchsq))
     writefile.close()
+def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median):
+    LoD_VLBI, LoD_timing = list_of_dict_VLBI, list_of_dict_timing
+    chi_sq = 0
+    NoO = number_of_observations = 0
+    for i in range(len(LoD_VLBI)):
+        res = LoD_VLBI[i]['radecs'] - positions(refepoch, LoD_VLBI[i]['epochs'], LoD_timing[i], i, dict_median)
+        chi_sq += np.sum((res/LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+        NoO += 2 * len(LoD_VLBI[i]['epochs'])
+    DoF = degree_of_freedom = NoO - len(dict_median)
+    rchsq = chi_sq / DoF
+    return chi_sq, rchsq
 
 
 def read_inits(initsfile):
