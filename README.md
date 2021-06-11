@@ -1,4 +1,5 @@
 STERNE (stars in German) -- aStromeTry bayEsian infeReNcE
+
 author: Hao Ding and Adam Deller
 
 Availability:
