@@ -3,7 +3,7 @@
 sterne.simulate.py is written in python3 by Hao Ding.
 The main code to run is simulate().
 """
-import bilby, inspect
+import bilby
 from astropy.time import Time
 import numpy as np
 import astropy.units as u
@@ -240,8 +240,6 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.shares = shares
         self.number_of_pmparins = len(self.LoD_VLBI)
 
-        #parameters = inspect.getargspec(positions).args
-        #parameters.pop(0)
         parameters = get_parameters_from_shares(self.shares)
         print(parameters)
         super().__init__(parameters)

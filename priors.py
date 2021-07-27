@@ -3,14 +3,11 @@
 sterne.priors.py is written in python3 by Hao Ding.
 The main code to run is generate_initsfile().
 """
-import bilby, inspect
-from astropy.time import Time
 import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
 import howfun
-from astropy.table import Table
 import simulate
 
 def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
@@ -18,6 +15,16 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     Used to generate initsfile.
     Common parameters might have more than 1 list of priors.
     In such cases, the larger outer bound will be adopted.
+
+    Input parameters
+    ----------------
+    refepoch : float
+        Reference epoch.
+    pmparins : list of str
+        List of pmparin files.
+    shares : 2-D array
+        A 7*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
+        See the docstring for simulate.simulate() for more details.
 
     kwargs : 
         1) incl_prior : list of 2 floats

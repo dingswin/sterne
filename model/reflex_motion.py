@@ -2,13 +2,11 @@
 """
 written in python3 by Hao Ding.
 """
-from astropy.time import Time
 import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
 import howfun
-from astropy.table import Table
 
 def generate_parfile(pulsar):
     """
