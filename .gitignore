@@ -1,0 +1,6 @@
+__init__.pyc
+priors.pyc
+simulate.pyc
+__pycache__/__init__.cpython-37.pyc
+__pycache__/priors.cpython-37.pyc
+__pycache__/simulate.cpython-37.pyc
