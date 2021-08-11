@@ -73,8 +73,14 @@ def read_parfile(parfile):
     dict_parameter['t0'] *= u.d
     dict_parameter['om'] *= u.deg
     dict_parameter['omdot'] *= u.deg/u.yr
-    dict_parameter['om_asc'] *= u.deg
-    dict_parameter['a1dot'] *= constants.c
+    try:
+        dict_parameter['om_asc'] *= u.deg
+    except KeyError:
+        pass
+    try:
+        dict_parameter['a1dot'] *= constants.c
+    except KeyError:
+        pass
     dict_parameter['decj'] = u.deg * howfun.dms2deg(dict_parameter['decj'])
     return dict_parameter
 
@@ -129,10 +135,10 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl=85.29, Om_asc=190, px=
     Return parameters
     -----------------
     dRA : float
-        Reflex-motion-related right ascension offset, corresponding to the vector e1
+        Reflex-motion-related right ascension offset (in mas), corresponding to the vector e1
         in Eqn 54.
     dDEC : float
-        Reflex-motion-related declination offset, corresponding to the vector e2
+        Reflex-motion-related declination offset (in mas), corresponding to the vector e2
         in Eqn 54.
 
     Reference
@@ -143,8 +149,12 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl=85.29, Om_asc=190, px=
     epoch *= u.d
     incl *= u.deg
     Om_asc *= u.deg
-    e, T0, Pb0, Pbdot, omega0, omdot, a0, adot, dec = DoP['ecc'], DoP['t0'],\
-        DoP['pb'], DoP['pbdot'], DoP['om'], DoP['omdot'], DoP['a1'], DoP['a1dot'], DoP['decj']
+    e, T0, Pb0, Pbdot, omega0, omdot, a0, dec = DoP['ecc'], DoP['t0'],\
+        DoP['pb'], DoP['pbdot'], DoP['om'], DoP['omdot'], DoP['a1'], DoP['decj']
+    try:
+        adot = DoP['a1dot']
+    except KeyError:
+        adot = None
 
     n = (2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2)) * u.rad #angular velocity
     #n = 2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2) #angular velocity
@@ -154,7 +164,10 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl=85.29, Om_asc=190, px=
     k = omdot/n
     omega = omega0 + k * A_u
     theta = omega + A_u
-    a1 = a0 + adot * (epoch - T0) #equivalent to Eqn 71
+    if adot != None:
+        a1 = a0 + adot * (epoch - T0) #equivalent to Eqn 71
+    else:
+        a1 = a0
     b_abs = a1 * (1 - e * np.cos(u1))
     b_AU = b_abs.to(u.AU).value
     offset = b_AU * px
