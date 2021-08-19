@@ -155,8 +155,12 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         print(limits)
         priors = {}
         for parameter in limits.keys():
-            priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
-                maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+            if limits[parameter][2] == 'Uniform':
+                priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
+                    maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+            elif limits[parameter][2] == 'Gaussian':
+                priors[parameter] = bilby.prior.Gaussian(mu=limits[parameter][0],\
+                    sigma=limits[parameter][1], name=parameter, latex_label=parameter)
         try:
             iterations = kwargs['iterations']
         except KeyError:
@@ -216,7 +220,9 @@ def read_inits(initsfile):
                 if keyword in line:
                     parameter = line.split(':')[0].strip()
                     limits = line.split(':')[-1].strip().split(',')
-                    limits = [float(limit.strip()) for limit in limits]
+                    limits = [limit.strip() for limit in limits]
+                    limits[0] = float(limits[0])
+                    limits[1] = float(limits[1])
                     dict_limits[parameter] = limits
     return dict_limits 
 

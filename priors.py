@@ -12,7 +12,9 @@ import simulate
 
 def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     """
-    Used to generate initsfile.
+    Used to generate initsfile describing Uniform prior distribution of parameters.
+    One has to mannually change the priors in the produced initsfile to mu,sigma,Gaussian, if 
+    Gaussian distribution is requested.
     Common parameters might have more than 1 list of priors.
     In such cases, the larger outer bound will be adopted.
 
@@ -43,14 +45,16 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile = open(inits, 'w')
     writefile.write('#Prior info at MJD %f.\n' % refepoch)
     writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
-    writefile.write('#The prior info is based on the pmpar results.\n')
+    writefile.write('#If Uniform prior is requested, then the two values stand for lower and upper limit.\n')
+    writefile.write('#If Gaussian prior is requested, then the two values stand for mu and sigma.\n')
+    writefile.write('#The Uniform prior info is based on the pmpar results.\n')
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl and om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():
         if (not 'om_asc' in parameter) and (not 'incl' in parameter):
             related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
-            writefile.write('%s: %.11f,%.11f\n' % (parameter, lower_limit, upper_limit))
+            writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
             writefile.write('%s: %f,%f\n' % (parameter, incl_prior[0], incl_prior[1]))
         else:
