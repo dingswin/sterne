@@ -51,7 +51,7 @@ def auto_fill_disabled_parameters(filtered_dict_of_parameters):
     return filtered_dict_of_parameters
 
 def position(refepoch, epoch, dec_rad, incl, mu_a, mu_d, om_asc, px, ra_rad,\
-        dict_of_timing_parameters={}):
+        dict_of_timing_parameters={}, **kwargs):
     """
     Outputs position given reference position, proper motion and parallax 
     (at a reference epoch) and time of interest.
@@ -59,12 +59,12 @@ def position(refepoch, epoch, dec_rad, incl, mu_a, mu_d, om_asc, px, ra_rad,\
     Input parameters
     ----------------
     refepoch : float
-        Reference epoch, in MJD.
-    ra_rad : rad
-        Right ascension for barycentric frame, in hh:mm:ss.ssss;
+        Reference epoch for ra_rad and dec_rad, in MJD.
+    ra_rad : float
+        Right ascension for barycentric frame, in rad;
         Also see inputgeocentricposition.
-    dec_rad : rad
-        Declination for barycentric frame, in dd:mm:ss.sss;
+    dec_rad : float
+        Declination for barycentric frame, in rad;
         Also see inputgeocentricposition.
     mu_a : float
         Proper motion in right ascension, in mas/yr.
@@ -73,12 +73,18 @@ def position(refepoch, epoch, dec_rad, incl, mu_a, mu_d, om_asc, px, ra_rad,\
     px : float 
         Parallax, in mas.
     epoch : float
-        Time of interest, in MJD.
-    useDE421 : bool
-        Use DE421 if True (default), use DE405 if False.
-    inputgeocentricposition : bool
-        Use input ra and dec for barycentric frame if False (default);
-        Use input ra and dec for geocentric frame if True.
+        Time when a position is to be calculated, in MJD.
+    dict_of_timing_parameters : dict (default : {})
+        In case reflex motion needs to be calculated, dict_of_timing_parameters that
+        records orbital parameters obtained with timing should be provided.
+
+    kwargs : dict
+        Both currently not in use!
+        1. useDE421 : bool
+            Use DE421 if True (default), use DE405 if False.
+        2. inputgeocentricposition : bool
+            Use input ra and dec for barycentric frame if False (default);
+            Use input ra and dec for geocentric frame if True.
 
     Return parameters
     -----------------
@@ -109,6 +115,15 @@ def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, 
     Originality note
     ----------------
     This function is adopted from astrometryfit written by Adam Deller and Scott Ransom.
+    
+    Input parameters
+    ----------------
+    ra : float
+        in rad.
+    dec : float
+        in rad.
+    px : float
+        in mas.
 
     Return parameters
     -----------------
@@ -138,6 +153,8 @@ def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, 
 def plot_model_given_astrometric_parameters(refepoch, ra, dec, mu_a, mu_d, px, start_epoch, end_epoch,\
         useDE421=True, inputgeocentricposition=False):
     """
+    Deprecated temporarily!!
+
     Input parameters
     ----------------
     start_epoch : float
