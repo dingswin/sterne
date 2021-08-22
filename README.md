@@ -6,7 +6,7 @@ Availability:
 This code will be able to install by "pip install sterne".
 
 Code Description:
-This code, written by Hao Ding in python3, generalises on astrometryfit (https://github.com/adamdeller/astrometryfit) by Adam Deller and Scott Ransom. The generalisation enables one to infer astrometric parameters for sources sharing some identical astrometric parameters (but different on other astrometric parameters). The scope of the code is mainly VLBI astrometry of nearby pulsars, preferably the astrometry having multiple in-beam calibrators. However, there is no doubt the code can be applied to astrometry of other targets carried out beyond VLBI.
+This code generalises on astrometryfit (https://github.com/adamdeller/astrometryfit) by Adam Deller and Scott Ransom. The generalisation enables one to infer astrometric parameters for sources sharing some identical astrometric parameters (but different on other astrometric parameters). The scope of the code is mainly VLBI astrometry of nearby pulsars, preferably the astrometry having multiple in-beam calibrators. However, there is no doubt the code can be applied to astrometry of other targets carried out beyond VLBI.
 
 Functions:
 1) infer up to 7 parameters -- parallax, proper motion, reference position, longitude of ascending node and inclination angle (already realized by astrometryfit). For the two (binary) orbital-motion parameters, the Tempo2 convention is adopted to assist comparison with pulsar timing results.

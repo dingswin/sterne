@@ -190,8 +190,9 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     for p in parameters:
         dict_median[p] = howfun.sample2median(t[p])
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
-        writefile.write('%s = %f + %.11f - %.11f\n' % (p, dict_median[p],\
+        writefile.write('%s = %.11f + %.11f - %.11f\n' % (p, dict_median[p],\
             dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.close()
