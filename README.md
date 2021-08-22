@@ -19,7 +19,7 @@ Requisites to use Sterne:
 See sterne.simulate.py for more details.
 
 Outputs:
-The output will be provided in the "outdir" (or a folder name specified by the user) folder under the current directory.
+The output will be provided in the "outdir" (or a folder name specified by the user) folder under the current directory. Publication-level corner plots can be made with plot.corner() that consumes posterior_samples.dat (or its like).
 
 Usage tips:
 1) be sure to clear away the outdir folder before new inference.

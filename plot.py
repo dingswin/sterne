@@ -22,6 +22,7 @@ def cornerplot(saved_posteriors='outdir/posterior_samples.dat',\
                 'dec_0':r"$\Delta\delta$\,(mas)", 
                 'mu_a_0':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$",
                 'mu_d_0':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$"}.
+            If not provded, parameter names will be adopted as axis label names.
     """
     cornerplot_samples = Table.read(saved_posteriors, format='ascii')
     cornerplot_samples.remove_columns(['log_likelihood','log_prior'])
