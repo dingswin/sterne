@@ -23,3 +23,4 @@ The output will be provided in the "outdir" (or a folder name specified by the u
 
 Usage tips:
 1) be sure to clear away the outdir folder before new inference.
+2) make sure the refepoch for priors match with the one used in the simulation.

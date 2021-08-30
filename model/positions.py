@@ -118,6 +118,8 @@ def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, 
     
     Input parameters
     ----------------
+    epoch : float
+        in MJD.
     ra : float
         in rad.
     dec : float
@@ -146,7 +148,7 @@ def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, 
     X, Y, Z = solsys.solarsystem(epoch+2400000.5, 3, 0)[0]  
     #print(X,Y,Z)
     # Following is from Astronomical Almanac Explanatory Supplement p 125-126
-    dRA = px * (X * np.sin(ra) - Y * np.cos(ra)) / np.cos(dec) #in mas
+    dRA = px * (X * np.sin(ra) - Y * np.cos(ra)) / np.cos(dec) #in mas; here, np.cos(dec) has been divided, to be added to ra_rad
     dDEC = px * (X * np.cos(ra) * np.sin(dec) + Y * np.sin(ra) * np.sin(dec) - Z * np.cos(dec)) #in mas
     return np.array([dRA, dDEC]) #in mas
 

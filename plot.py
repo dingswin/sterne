@@ -23,6 +23,10 @@ def cornerplot(saved_posteriors='outdir/posterior_samples.dat',\
                 'mu_a_0':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$",
                 'mu_d_0':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$"}.
             If not provded, parameter names will be adopted as axis label names.
+        2. truths : list
+            the 'truths' parameter for corner.corner(), in alphabetical order for
+            parameters. For example, if the truth parallax is 0.95 (mas), then the
+            truths can be [None,None,None,0.95,None].
     """
     cornerplot_samples = Table.read(saved_posteriors, format='ascii')
     cornerplot_samples.remove_columns(['log_likelihood','log_prior'])
@@ -37,6 +41,10 @@ def cornerplot(saved_posteriors='outdir/posterior_samples.dat',\
         for parameter in parameters:
             cornerplot_variables.append(parameter)
     print(cornerplot_variables)
+    try:
+        truths = kwargs['truths']
+    except KeyError:
+        truths = [None] * len(parameters)
     ## >>> convert ra/dec to offset from median ra/dec to ease illustration
     for parameter in parameters:
         if 'dec' in parameter:
@@ -52,7 +60,8 @@ def cornerplot(saved_posteriors='outdir/posterior_samples.dat',\
     cornerplot_2darray = transfer_astropy_Table_to_2darray_accepted_by_corner(cornerplot_samples)
     
     fig = corner.corner(cornerplot_2darray, labels=cornerplot_variables,\
-        label_kwargs={"fontsize": 22})
+        label_kwargs={"fontsize": 22}, truths=truths)
+    #corner.overplot_lines(fig, mean_values, color='g')
     fig.tight_layout()
     for ax in fig.get_axes():
         ax.tick_params(axis='both', labelsize=14, pad=0)

@@ -23,7 +23,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     refepoch : float
         Reference epoch.
     pmparins : list of str
-        List of pmparin files.
+        List of pmparin files, e.g., ['J2222-0137.pmpar.in'].
     shares : 2-D array
         A 7*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
         See the docstring for simulate.simulate() for more details.
@@ -56,9 +56,9 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
-            writefile.write('%s: %f,%f\n' % (parameter, incl_prior[0], incl_prior[1]))
+            writefile.write('%s: %f,%f,Uniform\n' % (parameter, incl_prior[0], incl_prior[1]))
         else:
-            writefile.write('%s: 0,360\n' % parameter)
+            writefile.write('%s: 0,360,Uniform\n' % parameter)
     writefile.close()
 
 def create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma=20):
