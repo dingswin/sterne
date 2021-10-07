@@ -192,6 +192,17 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
         writefile.write('%s = %.11f + %.11f - %.11f\n' % (p, dict_median[p],\
             dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+    
+    ## >>> estimate correlation coefficients
+    DoR = dict_of_correlation_coefficient = {}
+    writefile.write('\n#Correlation coefficients:\n')
+    for i in range(1, len(parameters)):
+        for j in range(i):
+            key = 'r__' + parameters[j] + '__' + parameters[i]
+            DoR[key] = np.corrcoef(t[parameters[j]], t[parameters[i]])[0,1]
+            writefile.write('%s = %f\n' % (key, DoR[key]))
+    #print(DoR)
+    ## <<<
 
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
