@@ -106,7 +106,7 @@ def solve_u(e, c, precision=1e-5):
         iterations += 1
     return x, iterations
 
-def reflex_motion(epoch, dict_of_orbital_parameters, incl=85.29, Om_asc=190, px=3.73):
+def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     """
     Following mathematical formalism detailed in Eqn 55 through 63 
         in the Tempo2 paper (ref1).
