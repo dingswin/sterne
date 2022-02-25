@@ -33,6 +33,10 @@ def read_parfile(parfile):
     with the format of PSRCAT format.
     It is always important to update parameters to latest values before using them.
     
+    * The parallax is also read from the parfile, for estimating the degree of reflex
+    motion combining the "a1" parameter.
+   
+
     Return parameters
     -----------------
     dict_parameter : dict ({str:float})
@@ -47,11 +51,12 @@ def read_parfile(parfile):
         pbdot - first time derivative of orbital period (s/s);
         a1dot - first time derivative of A1 (light-second/s);
         sini - sine of inclination angle;
+        px - parallax;
     """
     readfile = open(parfile, 'r')
     lines = readfile.readlines()
     readfile.close()
-    keywords_needed = ['DECJ', 'PB ', 'ECC', 'A1 ', 'T0', 'OM ', 'OMDOT', 'OM_ASC', 'PBDOT', 'A1DOT', 'SINI']
+    keywords_needed = ['DECJ', 'PB ', 'ECC', 'A1 ', 'T0', 'OM ', 'OMDOT', 'OM_ASC', 'PBDOT', 'A1DOT', 'SINI', 'PX']
     parameters = [kw.strip().lower() for kw in keywords_needed]
     dict_parameter = {}
     for line in lines:
