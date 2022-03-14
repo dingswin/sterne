@@ -44,13 +44,13 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         4) an arg both containing '.pmpar.in' and ending with '.par' should be avoided. 
     kwargs : key=value
         1) shares : 2-D array 
-            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
+            (default : [[0]*N,list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
             Used to assign shared parameters to fit and which paramters to not fit.
-            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',
+            The size of shares is 8*N, 8 refers to the 8 parameters ('a1dot', 'dec','incl',
             'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number
             of pmparins. As an example, for four pmparins, shares can be
-            [[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]]. Same
-            numbers in the same row shares the same parallax (e.g. 'px' is shared by all
+            [[0,0,1,1], [0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
+            Same numbers in the same row shares the same parameter (e.g. 'px' is shared by all
             pmparins). Furthermore, if shares[i][j]<0, it means the inference for
             parameter[i] with pmparins[j] is turned off. This turn-off function is not so
             useful now, but may be helpful in future.
@@ -65,17 +65,24 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         5) use_saved_samples : bool
             If True, run_sampler will be bypassed.
 
+    Caveats
+    -------
+    We assume a1dot is predominantly attributed to the variation of inclination due to 
+        the proper motion (Kopeikin, 1996), which is normally valid for pulsars in wide orbits.
+        Should there be a remarkable a1dot owing to gravitational-wave damping, the reflex
+        motion is normally not prominent (as the orbit is usually compact).
+
     ** Examples ** :
         1) For two pulsars in a globular cluster:
-            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],[-1,0],
-                [0,1], [0,1],[-1,0],[0,0],[0,1]])
+            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[-1,0],[0,1],
+                [-1,0],[0,1], [0,1],[-1,0],[0,0],[0,1]])
         2) For a pulsar with two in-beam calibrators:
             simulate(57444,'a.inits','i1.pmpar.in','p.par','i2.pmpar.in','p.par',
-                shares=[[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
+                shares=[[0,0],[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
         3) For two pulsars in a globular cluster sharing an in-beam calibrator:
             simulate(57444,'a.inits','i1p1.pmpar.in', '', 'i2p1.pmpar.in','', 'i1p2.pmpar.in',
-                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[0,0,1,1],[1,1,2,2],
-                [1,1,2,2],[0,0,1,1],[1,1,1,1],[1,2,3,4]])
+                'p2.par','i2p2.pmpar.in','p2.par',shares=[[-1,-1,0,0],[1,2,3,4],[-1,-1,0,0],
+                [1,1,2,2],[1,1,2,2],[-1,-1,0,0],[1,1,1,1],[1,2,3,4]])
     """
     ##############################################################
     ############ parse args to get pmparins, parfiles ############
@@ -281,9 +288,9 @@ class Gaussianlikelihood(bilby.Likelihood):
 
 def get_parameters_from_shares(shares):
     parameters = {}
-    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    roots = parameter_roots = ['a1dot', 'dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
     NoP = number_of_pmparins = len(shares[0])
-    for i in range(7):
+    for i in range(len(roots)):
         list_of_strings = group_elements_by_same_values(shares[i])
         for string in list_of_strings:
             parameter = roots[i] + string

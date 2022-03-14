@@ -26,12 +26,16 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     pmparins : list of str
         List of pmparin files, e.g., ['J2222-0137.pmpar.in'].
     shares : 2-D array
-        A 7*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
+        A 8*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
         See the docstring for simulate.simulate() for more details.
 
     kwargs : 
         1) incl_prior : list of 2 floats
             [lower_limit, upper_limit] for all inclinations.
+        2) a1dot_prior : list of 2 floats
+            [lower_limit, upper_limit] for all derivatives of projected semi-major axis
+        3) om_asc_prior : list of 2 floats
+            [lower_limit, upper_limit] for all orbit ascending node longitudes.
     """
     HMS = HowManySigma
     roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
@@ -40,26 +44,36 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     try:
         incl_prior = kwargs['incl_prior']
     except KeyError:
-        incl_prior = [0, 360]
+        incl_prior = [0, 180]
+    try:
+        om_asc_prior = kwargs['om_asc_prior']
+    except KeyError:
+        om_asc_prior = [0, 360]
+    try:
+        a1dot_prior = kwargs['a1dot_prior']
+    except KeyError:
+        a1dot_prior = [0, 1]
     inits = pmparins[0].replace('.pmpar.in','')
     inits = inits + '.inits'
     writefile = open(inits, 'w')
     writefile.write('#Prior info at MJD %f.\n' % refepoch)
     writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
-    writefile.write('#If Uniform prior is requested, then the two values stand for lower and upper limit.\n')
-    writefile.write('#If Gaussian prior is requested, then the two values stand for mu and sigma.\n')
+    writefile.write('#If Uniform or Sine distribution is requested, then the two values stand for lower and upper limit.\n')
+    writefile.write('#If Gaussian distribution is requested, then the two values stand for mu and sigma.\n')
     writefile.write('#The Uniform prior info is based on the pmpar results.\n')
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl and om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():
-        if (not 'om_asc' in parameter) and (not 'incl' in parameter):
+        if (not 'om_asc' in parameter) and (not 'incl' in parameter) and (not 'a1dot' in parameter):
             related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
-            writefile.write('%s: %f,%f,Uniform\n' % (parameter, incl_prior[0], incl_prior[1]))
-        else:
-            writefile.write('%s: 0,360,Uniform\n' % parameter)
+            writefile.write('%s: %f,%f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
+        elif 'a1dot' in parameter:
+            writefile.write('%s: %.16f,%.16f,Gaussian\n' % (parameter, a1dot_prior[0], a1dot_prior[1]))
+        else: ## om_asc
+            writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
     writefile.close()
 
 def create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma=20):
