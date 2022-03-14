@@ -13,6 +13,7 @@ import howfun
 from astropy.table import Table
 from model import reflex_motion
 from model.positions import positions
+from sterne import priors as _priors
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """
     Input parameters
@@ -53,8 +54,10 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             pmparins). Furthermore, if shares[i][j]<0, it means the inference for
             parameter[i] with pmparins[j] is turned off. This turn-off function is not so
             useful now, but may be helpful in future.
-        2) iterations : float
+        2) iterations : float (default : 100)
             'iterations' that will be passed to bilby.run_sampler().
+            Changing "iterations" to over 500 would avoid fuzzy corner plots, while
+            "interations"=1000 would make smooth corner plots.
         3) nwalkers : float
             'nwalkers' that will be passed to bilby.run_sampler().
         4) outdir : float
@@ -161,6 +164,9 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             elif limits[parameter][2] == 'Gaussian':
                 priors[parameter] = bilby.prior.Gaussian(mu=limits[parameter][0],\
                     sigma=limits[parameter][1], name=parameter, latex_label=parameter)
+            elif limits[parameter][2] == 'Sine':
+                priors[parameter] = _priors.Sine_deg(minimum=limits[parameter][0],\
+                    maximum=limits[parameter][1], name=parameter, latex_label=parameter)
         try:
             iterations = kwargs['iterations']
         except KeyError:

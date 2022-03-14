@@ -9,6 +9,7 @@ from astropy import constants
 import os, sys
 import howfun
 import simulate
+from bilby.core.prior.base import Prior
 
 def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     """
@@ -189,4 +190,36 @@ def replace_pmparin_refepoch(pmparin, refepoch):
     writefile.writelines(lines)
     writefile.close()
 
+class Sine_deg(Prior):
+    """
+    Note
+    ----
+    P(i) ~ sin(i), i.e., probability density proportional to sin(i).
+    Edited from bilby.core.prior.base.Prior.Sine() (which offers more docstrings).
+    The only difference (see difference 1, 2, 3, 4) is the unit is deg instead of rad.
     
+    Reference
+    ---------
+    Ashton et al. 2019
+    """
+    def __init__(self,  minimum=0, maximum=180, name=None,\
+            latex_label=None, unit=None, boundary=None): ## difference 1
+        super(Sine_deg, self).__init__(name=name, latex_label=latex_label, unit=unit,
+                                   minimum=minimum, maximum=maximum, boundary=boundary)
+        self.maximum *= np.pi/180. ## difference 2
+        self.minimum *= np.pi/180. ## difference 3
+
+    def rescale(self, val):
+        self.test_valid_for_rescaling(val)
+        norm = 1 / (np.cos(self.minimum) - np.cos(self.maximum))
+        return 180./np.pi*np.arccos(np.cos(self.minimum) - val / norm) ## difference 4
+
+    def prob(self, val):
+        return np.sin(val) / 2 * self.is_in_prior_range(val)
+
+    def cdf(self, val):
+        _cdf = np.atleast_1d((np.cos(val) - np.cos(self.minimum)) /
+                             (np.cos(self.maximum) - np.cos(self.minimum)))
+        _cdf[val > self.maximum] = 1
+        _cdf[val < self.minimum] = 0
+        return _cdf
