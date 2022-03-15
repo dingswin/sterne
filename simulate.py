@@ -11,7 +11,7 @@ from astropy import constants
 import os, sys
 import howfun
 from astropy.table import Table
-from model import reflex_motion
+from model import reflex_motion, kopeikin_effects
 from model.positions import positions
 from sterne import priors as _priors
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
@@ -113,7 +113,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     try:
         shares = kwargs['shares']
     except KeyError:
-        shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
+        shares = [[0]*NoP, list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
             [0]*NoP, list(range(NoP))]
     
     print(pmparins, parfiles, initsfile, shares)
@@ -241,7 +241,7 @@ def read_inits(initsfile):
     dict_limits = {}
     for line in lines:
         if not line.startswith('#'):
-            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
+            for keyword in ['a1dot', 'ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
                 if keyword in line:
                     parameter = line.split(':')[0].strip()
                     limits = line.split(':')[-1].strip().split(',')
@@ -283,6 +283,9 @@ class Gaussianlikelihood(bilby.Likelihood):
         for i in range(self.number_of_pmparins):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
             log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+            
+        ETRA = equivalent_total_res_a1dot = kopeikin_effects.calculate_equivalent_total_res_a1dot(self.LoD_timing, self.parameters)
+        log_p += -0.5 * ETRA**2
         return log_p
     
 

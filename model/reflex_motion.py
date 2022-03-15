@@ -72,7 +72,10 @@ def read_parfile(parfile):
     dict_parameter['a1'] *= constants.c * u.s
     dict_parameter['t0'] *= u.d
     dict_parameter['om'] *= u.deg
-    dict_parameter['omdot'] *= u.deg/u.yr
+    try:
+        dict_parameter['omdot'] *= u.deg/u.yr
+    except KeyError:
+        pass
     try:
         dict_parameter['om_asc'] *= u.deg
     except KeyError:
@@ -81,7 +84,10 @@ def read_parfile(parfile):
         dict_parameter['a1dot'] *= constants.c
     except KeyError:
         pass
-    dict_parameter['decj'] = u.deg * howfun.dms2deg(dict_parameter['decj'])
+    try:
+        dict_parameter['decj'] = u.deg * howfun.dms2deg(dict_parameter['decj'])
+    except KeyError:
+        pass
     return dict_parameter
 
 def solve_u(e, c, precision=1e-5):
@@ -184,4 +190,3 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     dRA = (b.item(0,0)/np.cos(dec)).value #that can be directly added to RA
     dDEC = b.item(1,0)
     return np.array([dRA, dDEC]) #in mas
-
