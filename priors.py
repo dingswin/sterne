@@ -60,7 +60,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
     writefile.write('#If Uniform or Sine distribution is requested, then the two values stand for lower and upper limit.\n')
     writefile.write('#If Gaussian distribution is requested, then the two values stand for mu and sigma.\n')
-    writefile.write('#The unit of a1dot is 1e15 ls-sec/sec.\n')
+    writefile.write('#The unit of a1dot is ls-sec/sec.\n')
     writefile.write('#The Uniform prior info is based on the pmpar results.\n')
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl in rad; om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
@@ -72,7 +72,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         elif 'incl' in parameter:
             writefile.write('%s: %.11f,%.11f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
         elif 'a1dot' in parameter:
-            writefile.write('%s: %f,%f,Gaussian\n' % (parameter, a1dot_prior[0]*1e15, a1dot_prior[1]*1e15))
+            writefile.write('%s: %.20f,%.20f,Gaussian\n' % (parameter, a1dot_prior[0], a1dot_prior[1]))
         else: ## om_asc
             writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
     writefile.close()

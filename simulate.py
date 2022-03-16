@@ -203,7 +203,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     for p in parameters:
         dict_median[p] = howfun.sample2median(t[p])
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
-        writefile.write('%s = %.11f + %.11f - %.11f\n' % (p, dict_median[p],\
+        writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
             dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
     
     ## >>> estimate correlation coefficients
@@ -284,8 +284,8 @@ class Gaussianlikelihood(bilby.Likelihood):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
             log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
             
-        #ETRA = equivalent_total_res_a1dot = kopeikin_effects.calculate_equivalent_total_res_a1dot(self.LoD_timing, self.parameters)
-        #log_p += -0.5 * ETRA**2
+        ETRA = equivalent_total_res_a1dot = kopeikin_effects.calculate_equivalent_total_res_a1dot(self.LoD_timing, self.parameters)
+        log_p += -0.5 * ETRA**2
         return log_p
     
 

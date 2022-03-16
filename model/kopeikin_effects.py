@@ -66,7 +66,7 @@ def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
     Output parameter
     ----------------
     equivalent_total_res_a1dot : float
-        in 1e15 lt-sec/sec.
+        in lt-sec/sec.
         It would be 0, if list_of_res_a1dot == np.array([]).
     """
     LoD_timing = list_of_dict_timing
@@ -82,4 +82,4 @@ def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
             list_of_res_a1dot = np.append(list_of_res_a1dot, res_a1dot)
     sum_res_a1dot = np.sum(list_of_res_a1dot**2)
     equivalent_total_res_a1dot = sum_res_a1dot**0.5
-    return equivalent_total_res_a1dot * 1e15
+    return equivalent_total_res_a1dot
