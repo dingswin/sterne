@@ -19,7 +19,7 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
     a1 : float
         a1 = a * sin(inc), where a is orbital semi-major axis (in lt-sec).
     inc : float
-        orbital inclination angle (in deg).
+        orbital inclination angle (in rad).
     mu_a : float
         proper motion in RA (mas/yr).
     mu_d : float
@@ -34,7 +34,7 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
         a1dot due to inclination variation caused by proper motion.
         Here, a1dot denotes time derivative of a1.
     """
-    inc *= u.deg
+    inc *= u.rad
     om_asc *= u.deg
     mu_a *= u.mas/u.yr
     mu_d *= u.mas/u.yr

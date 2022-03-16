@@ -132,7 +132,7 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     dict_of_orbital_parameters : dict
         See the function read_parfile()
     incl : float
-        Inclination angle (deg).
+        Inclination angle (rad).
     Om_asc : float
         Position angle of ascending node (deg).
     px : float
@@ -153,7 +153,7 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     """
     DoP = dict_of_orbital_parameters
     epoch *= u.d
-    incl *= u.deg
+    incl *= u.rad
     Om_asc *= u.deg
     e, T0, Pb0, Pbdot, omega0, omdot, a0, dec = DoP['ecc'], DoP['t0'],\
         DoP['pb'], DoP['pbdot'], DoP['om'], DoP['omdot'], DoP['a1'], DoP['decj']

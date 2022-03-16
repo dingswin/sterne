@@ -44,7 +44,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     try:
         incl_prior = kwargs['incl_prior']
     except KeyError:
-        incl_prior = [0, 180]
+        incl_prior = [0, 3.141592653589793]
     try:
         om_asc_prior = kwargs['om_asc_prior']
     except KeyError:
@@ -62,7 +62,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile.write('#If Gaussian distribution is requested, then the two values stand for mu and sigma.\n')
     writefile.write('#The unit of a1dot is 1e15 ls-sec/sec.\n')
     writefile.write('#The Uniform prior info is based on the pmpar results.\n')
-    writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl and om_asc in deg.\n')
+    writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl in rad; om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():
         if (not 'om_asc' in parameter) and (not 'incl' in parameter) and (not 'a1dot' in parameter):
@@ -70,7 +70,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
-            writefile.write('%s: %f,%f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
+            writefile.write('%s: %.11f,%.11f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
         elif 'a1dot' in parameter:
             writefile.write('%s: %f,%f,Gaussian\n' % (parameter, a1dot_prior[0]*1e15, a1dot_prior[1]*1e15))
         else: ## om_asc

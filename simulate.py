@@ -172,7 +172,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
                 priors[parameter] = bilby.prior.Gaussian(mu=limits[parameter][0],\
                     sigma=limits[parameter][1], name=parameter, latex_label=parameter)
             elif limits[parameter][2] == 'Sine':
-                priors[parameter] = _priors.Sine_deg(minimum=limits[parameter][0],\
+                priors[parameter] = bilby.prior.Sine(minimum=limits[parameter][0],\
                     maximum=limits[parameter][1], name=parameter, latex_label=parameter)
         try:
             iterations = kwargs['iterations']
@@ -199,7 +199,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc and incl in deg.)\n')
+    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad.)\n')
     for p in parameters:
         dict_median[p] = howfun.sample2median(t[p])
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
