@@ -30,7 +30,7 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
 
     ----------------
     a1dot_pm : float
-        in 1e3 lt-sec/sec. 
+        in 1e0 lt-sec/sec. 
         a1dot due to inclination variation caused by proper motion.
         Here, a1dot denotes time derivative of a1.
     """
@@ -42,7 +42,7 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
     theta_mu = np.arctan2(mu_a, mu_d) ## position angle of mu (east of north)
     a1dot_pm = mu * np.sin(theta_mu - om_asc) / np.tan(inc)
     a1dot_pm *= a1
-    return 1e3 * a1dot_pm.to(u.rad/u.s).value ## in 1e3 lt-sec/sec
+    return 1e0 * a1dot_pm.to(u.rad/u.s).value ## in 1e0 lt-sec/sec
 
 def calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
     """
@@ -51,12 +51,12 @@ def calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
     Input parameters
     ----------------
     a1dot : float
-        in 1e3 lt-sec/sec.
+        in 1e0 lt-sec/sec.
     
     Output parameter
     ----------------
     res_a1dot : float
-        in 1e3 lt-sec/sec.
+        in 1e0 lt-sec/sec.
     """
     a1dot_pm = calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc)
     res_a1dot = a1dot - a1dot_pm 
@@ -66,7 +66,7 @@ def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
     Output parameter
     ----------------
     equivalent_total_res_a1dot : float
-        in 1e3 lt-sec/sec.
+        in 1e0 lt-sec/sec.
         It would be 0, if list_of_res_a1dot == np.array([]).
     """
     LoD_timing = list_of_dict_timing 
