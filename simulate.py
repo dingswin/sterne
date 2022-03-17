@@ -285,7 +285,7 @@ class Gaussianlikelihood(bilby.Likelihood):
             log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
             
         ETRA = equivalent_total_res_a1dot = kopeikin_effects.calculate_equivalent_total_res_a1dot(self.LoD_timing, self.parameters)
-        print('ETRA=%.20f' % ETRA)
+        #print('ETRA=%.20f' % ETRA)
         log_p += -0.5 * ETRA**2
         return log_p
     

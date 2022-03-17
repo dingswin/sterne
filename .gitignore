@@ -3,4 +3,9 @@ priors.pyc
 simulate.pyc
 __pycache__/__init__.cpython-37.pyc
 __pycache__/priors.cpython-37.pyc
+__pycache__/plot.cpython-37.pyc
 __pycache__/simulate.cpython-37.pyc
+model/__pycache__/__init__.cpython-37.pyc
+model/__pycache__/kopeikin_effects.cpython-37.pyc
+model/__pycache__/positions.cpython-37.pyc
+model/__pycache__/reflex_motion.cpython-37.pyc
