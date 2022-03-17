@@ -7,6 +7,7 @@ import astropy.units as u
 from astropy import constants
 import os, sys
 import howfun
+from psrqpy import QueryATNF
 
 def generate_parfile(pulsar):
     """
@@ -87,7 +88,15 @@ def read_parfile(parfile):
     try:
         dict_parameter['decj'] = u.deg * howfun.dms2deg(dict_parameter['decj'])
     except KeyError:
-        pass
+        print("'decj' is essential but is missing from %s. try to get it with psrqpy..." % parfile)
+        psrname = parfile.split('.')[0]
+        print('Guess the pulsar name to be %s' % psrname)
+        query1 = QueryATNF(psrs=[psrname], params=['DECJ'])
+        decj = str(query1['DECJ'][0])
+        decj = u.deg * howfun.dms2deg(decj)
+        print('decj=')
+        print(decj)
+        dict_parameter['decj'] = decj
     return dict_parameter
 
 def solve_u(e, c, precision=1e-5):
@@ -155,8 +164,16 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     epoch *= u.d
     incl *= u.rad
     Om_asc *= u.deg
-    e, T0, Pb0, Pbdot, omega0, omdot, a0, dec = DoP['ecc'], DoP['t0'],\
-        DoP['pb'], DoP['pbdot'], DoP['om'], DoP['omdot'], DoP['a1'], DoP['decj']
+    e, T0, Pb0, omega0, a0, dec = DoP['ecc'], DoP['t0'],\
+        DoP['pb'], DoP['om'], DoP['a1'], DoP['decj']
+    try:
+        omdot = DoP['omdot']
+    except KeyError:
+        omdot = 0 * u.deg/u.s
+    try:
+        Pbdot = DoP['pbdot']
+    except KeyError:
+        Pbdot = 0
     try:
         adot = DoP['a1dot']
     except KeyError:
