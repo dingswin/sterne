@@ -199,7 +199,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad; a1dot in 1e0 lt-sec/sec.)\n')
+    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad; a1dot in 1e3 lt-sec/sec.)\n')
     for p in parameters:
         dict_median[p] = howfun.sample2median(t[p])
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
@@ -285,7 +285,7 @@ class Gaussianlikelihood(bilby.Likelihood):
             log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
             
         ETRA = equivalent_total_res_a1dot = kopeikin_effects.calculate_equivalent_total_res_a1dot(self.LoD_timing, self.parameters)
-        print('ETRA=%.20f' % ETRA)
+        #print('ETRA=%.20f' % ETRA)
         log_p += -0.5 * ETRA**2
         return log_p
     
