@@ -199,7 +199,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad; a1dot in 1e20 lt-sec/sec.)\n')
+    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad; a1dot in 1e15 lt-sec/sec.)\n')
     for p in parameters:
         dict_median[p] = howfun.sample2median(t[p])
         dict_bound[p] = howfun.sample2median_range(t[p], 1)
