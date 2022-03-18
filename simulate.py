@@ -207,7 +207,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
             writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
                 dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
         else:
-            dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate_and_median(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
+            dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
             writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
     
     ## >>> estimate correlation coefficients
