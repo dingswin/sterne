@@ -201,10 +201,14 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     writefile.write('#Medians of the simulated samples:\n')
     writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad; a1dot in 1e0 lt-sec/sec.)\n')
     for p in parameters:
-        dict_median[p] = howfun.sample2median(t[p])
-        dict_bound[p] = howfun.sample2median_range(t[p], 1)
-        writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
-            dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+        if not 'om_asc' in p:
+            dict_median[p] = howfun.sample2median(t[p])
+            dict_bound[p] = howfun.sample2median_range(t[p], 1)
+            writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
+                dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+        else:
+            dict_median[p], error_p = howfun.periodic_sample2estimate(t[p]) ## not really median here (the center of the most compact confidence interval instead)!
+            writefile.write('%s = %f +- %f (deg)\n' % (p, dict_median[p], error_p)) 
     
     ## >>> estimate correlation coefficients
     DoR = dict_of_correlation_coefficient = {}
