@@ -8,7 +8,56 @@ from astropy import constants
 from sterne.model import positions as _positions
 import sys
 
-def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
+def calculate_kopeikin_om_asc(a1, a1dot, incl, mu_a, mu_d, om_asc_siding_east=True):
+    """
+    Convention
+    ----------
+    Tempo2.
+    
+    Formalism
+    ---------
+    a1dot/a1 = mu*cot(incl)*sin(theta_mu-om_asc)
+
+    Input parameters
+    ----------------
+    a1 : float
+        a1 = a * sin(inc), where a is orbital semi-major axis (in lt-sec).
+    inc : float
+        orbital inclination angle (in rad).
+    mu_a : float
+        proper motion in RA (mas/yr).
+    mu_d : float
+        proper mtoion in Dec (mas/yr).
+    a1dot : float
+        in 1e0 lt-sec/sec. 
+        a1dot due to inclination variation caused by proper motion.
+        Here, a1dot denotes time derivative of a1.
+    om_asc_siding_east : boolean (default : True)
+        The om_asc sides east or not on the sky. 
+        It is a hassel that each pair of a1dot and incl corresponds to two om_asc.
+
+    Output parameter
+    ----------------
+    om_asc : float
+        orbital ascending node longitude (in deg).
+    """
+    om_asc_siding_east = 2 * int(om_asc_siding_east) - 1 ## convert True, False to 1, -1.
+    a1 *= u.m
+    a1dot *= u.m/u.s
+    mu_a *= u.mas/u.yr
+    mu_d *= u.mas/u.yr
+    mu = (mu_a**2 + mu_d**2)**0.5
+    theta_mu = np.arctan2(mu_a, mu_d)
+    sin_om1 = (a1dot / a1 / mu * np.tan(incl)).to(1/u.rad)
+    print(sin_om1)
+    om1 = np.arcsin(sin_om1.value)
+    om_asc = theta_mu.value - om1
+    if np.cos(om_asc) * om_asc_siding_east < 0:
+        om_asc = np.pi - om_asc
+    om_asc *= 180./np.pi
+    return om_asc
+
+def __calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
     """
     Convention
     ----------
@@ -26,8 +75,8 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
         proper mtoion in Dec (mas/yr).
     om_asc : float
         orbital ascending node longitude (in deg).
+    
     Output parameter
-
     ----------------
     a1dot_pm : float
         in 1e0 lt-sec/sec. 
@@ -44,7 +93,7 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
     a1dot_pm *= a1
     return 1e0 * a1dot_pm.to(u.rad/u.s).value ## in 1e0 lt-sec/sec
 
-def calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
+def __calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
     """
     res_a1dot = a1dot - a1dot_pm
 
@@ -61,7 +110,7 @@ def calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
     a1dot_pm = calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc)
     res_a1dot = a1dot - a1dot_pm 
     return res_a1dot
-def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
+def __calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
     """
     Output parameter
     ----------------
