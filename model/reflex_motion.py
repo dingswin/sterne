@@ -40,13 +40,13 @@ def read_parfile(parfile):
         Dictionary of parameters including following keys
         pb - binary orbital period (d);
         ecc - eccentricity;
-        a1 - projected semi-major axis of orbit (light-second);
+        a1 - projected semi-major axis of orbit (m);
         t0 - epoch of periastron (MJD);
         om - omega, longitude of periastron (deg);
         omdot - periastron advance (deg/yr);
         om_asc - position angle of ascending node (deg);
         pbdot - first time derivative of orbital period (s/s);
-        a1dot - first time derivative of A1 (light-second/s);
+        a1dot - first time derivative of A1 (m/s);
         sini - sine of inclination angle;
     """
     readfile = open(parfile, 'r')

@@ -76,7 +76,7 @@ def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
             FP = _positions.filter_dictionary_of_parameter_with_index(dict_parameters, i)
             Ps = list(FP.keys())
             Ps.sort()
-            a1 = LoD_timing[i]['a1'].value
+            a1 = (LoD_timing[i]['a1'] / constants.c / u.s).value ## convert to lt-sec
             res_a1dot = calculate_res_a1dot(a1, FP[Ps[0]],\
                 FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]])
             list_of_res_a1dot = np.append(list_of_res_a1dot, res_a1dot)
