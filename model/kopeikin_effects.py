@@ -45,6 +45,12 @@ def a1dot_pm_formalisim(a1, inc, mu_a, mu_d, om_asc):
     return 1e0 * a1dot_pm.to(u.rad/u.s).value ## in 1e0 lt-sec/sec
 
 def calculate_a1dot_pm(list_of_dict_timing, parameters_dict):
+    """
+    Output parameter
+    ----------------
+    list_of_modeled_a1dot : list of floats
+        in lt-sec/sec.
+    """
     LoD_timing = list_of_dict_timing 
     list_of_modeled_a1dot = np.array([])
     for i in range(len(LoD_timing)):
@@ -59,7 +65,6 @@ def calculate_a1dot_pm(list_of_dict_timing, parameters_dict):
     if len(list_of_modeled_a1dot) == 0:
         print("The list_of_modeled_a1dot is empty. Make sure not all parfiles are ''.")
         sys.exit(1)
-    print(list_of_modeled_a1dot)
     return list_of_modeled_a1dot
 
 def __calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
