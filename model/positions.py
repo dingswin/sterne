@@ -23,8 +23,8 @@ def positions(refepoch, epochs, list_of_dict_timing, parameter_filter_index, dic
     ra_models = np.array([])
     dec_models = np.array([])
     for i in range(len(epochs)):
-        ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[1]],\
-            FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], FP[Ps[7]], list_of_dict_timing)
+        ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[0]],\
+            FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], list_of_dict_timing)
         ra_models = np.append(ra_models, ra_model)
         dec_models = np.append(dec_models, dec_model)
     return np.concatenate([ra_models, dec_models])

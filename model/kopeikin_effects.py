@@ -8,7 +8,7 @@ from astropy import constants
 from sterne.model import positions as _positions
 import sys
 
-def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
+def a1dot_pm_formalisim(a1, inc, mu_a, mu_d, om_asc):
     """
     Convention
     ----------
@@ -44,7 +44,25 @@ def calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc):
     a1dot_pm *= a1
     return 1e0 * a1dot_pm.to(u.rad/u.s).value ## in 1e0 lt-sec/sec
 
-def calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
+def calculate_a1dot_pm(list_of_dict_timing, parameters_dict):
+    LoD_timing = list_of_dict_timing 
+    list_of_modeled_a1dot = np.array([])
+    for i in range(len(LoD_timing)):
+        if LoD_timing[i] != {}:
+            FP = _positions.filter_dictionary_of_parameter_with_index(parameters_dict, i)
+            Ps = list(FP.keys())
+            Ps.sort()
+            a1 = (LoD_timing[i]['a1'] / constants.c / u.s).value ## convert to lt-sec
+            modeled_a1dot = a1dot_pm_formalisim(a1, FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]])
+            list_of_modeled_a1dot = np.append(list_of_modeled_a1dot, modeled_a1dot)
+
+    if len(list_of_modeled_a1dot) == 0:
+        print("The list_of_modeled_a1dot is empty. Make sure not all parfiles are ''.")
+        sys.exit(1)
+    print(list_of_modeled_a1dot)
+    return list_of_modeled_a1dot
+
+def __calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
     """
     res_a1dot = a1dot - a1dot_pm
 
@@ -61,7 +79,7 @@ def calculate_res_a1dot(a1, a1dot, inc, mu_a, mu_d, om_asc):
     a1dot_pm = calculate_a1dot_pm(a1, inc, mu_a, mu_d, om_asc)
     res_a1dot = a1dot - a1dot_pm 
     return res_a1dot
-def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
+def __calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
     """
     Output parameter
     ----------------
@@ -73,12 +91,11 @@ def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
     list_of_res_a1dot = np.array([]) 
     for i in range(len(LoD_timing)):
         if LoD_timing[i] != {}:
-            FP = _positions.filter_dictionary_of_parameter_with_index(dict_parameters, i)
+            FP = _positions.filter_dictionary_of_parameter_with_index(parameters_dict, i)
             Ps = list(FP.keys())
             Ps.sort()
             a1 = (LoD_timing[i]['a1'] / constants.c / u.s).value ## convert to lt-sec
-            res_a1dot = calculate_res_a1dot(a1, FP[Ps[0]],\
-                FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]])
+            res_a1dot = calculate_res_a1dot(a1, FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]])
             list_of_res_a1dot = np.append(list_of_res_a1dot, res_a1dot)
     if len(list_of_res_a1dot) == 0:
         print("The list_of_res_a1dot is empty. Make sure not all parfiles are ''.")
@@ -86,3 +103,4 @@ def calculate_equivalent_total_res_a1dot(list_of_dict_timing, dict_parameters):
     sum_res_a1dot = np.sum(list_of_res_a1dot**2)
     equivalent_total_res_a1dot = sum_res_a1dot**0.5
     return equivalent_total_res_a1dot
+    
