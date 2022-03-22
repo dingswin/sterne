@@ -9,7 +9,9 @@ from astropy import constants
 import os, sys
 import howfun
 import simulate
+import bilby
 from bilby.core.prior.base import Prior
+from bilby.core.prior import PriorDict
 
 def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     """
@@ -26,21 +28,22 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     pmparins : list of str
         List of pmparin files, e.g., ['J2222-0137.pmpar.in'].
     shares : 2-D array
-        A 8*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
+        A 7*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
         See the docstring for simulate.simulate() for more details.
 
     kwargs : 
         1) incl_prior : list of 2 floats
-            [lower_limit, upper_limit] for all inclinations.
-        2) a1dot_prior : list of 2 floats
-            [lower_limit, upper_limit] for all derivatives of projected semi-major axis
-        3) om_asc_prior : list of 2 floats
-            [lower_limit, upper_limit] for all orbit ascending node longitudes.
+            in rad. e.g. [lower_limit, upper_limit] for all inclinations.
+            ## In future, it will be extended to list of list of 2 floats
+            ## e.g. [[lower_limit, upper_limit]] for orbital inclinations.
+        2) om_asc_prior : list of 2 floats
+            in deg. e.g. [lower_limit, upper_limit] for all orbit ascending node longitudes.
+            ## in future, it will be extended to 2D array.
     """
     HMS = HowManySigma
     roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
     dict_limits = create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma)
-    parameters = simulate.get_parameters_from_shares(shares)
+    parameters = get_parameters_from_shares(shares)
     try:
         incl_prior = kwargs['incl_prior']
     except KeyError:
@@ -49,10 +52,6 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         om_asc_prior = kwargs['om_asc_prior']
     except KeyError:
         om_asc_prior = [0, 360]
-    try:
-        a1dot_prior = kwargs['a1dot_prior']
-    except KeyError:
-        a1dot_prior = [0, 1]
     inits = pmparins[0].replace('.pmpar.in','')
     inits = inits + '.inits'
     writefile = open(inits, 'w')
@@ -60,19 +59,16 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile.write('#%d reduced-chi-squre-corrected sigma limits are used.\n' % HMS)
     writefile.write('#If Uniform or Sine distribution is requested, then the two values stand for lower and upper limit.\n')
     writefile.write('#If Gaussian distribution is requested, then the two values stand for mu and sigma.\n')
-    writefile.write('#The unit of a1dot is 1e0 ls-sec/sec.\n')
     writefile.write('#The Uniform prior info is based on the pmpar results.\n')
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl in rad; om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():
-        if (not 'om_asc' in parameter) and (not 'incl' in parameter) and (not 'a1dot' in parameter):
+        if (not 'om_asc' in parameter) and (not 'incl' in parameter):
             related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
             writefile.write('%s: %.11f,%.11f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
-        elif 'a1dot' in parameter:
-            writefile.write('%s: %.20f,%.20f,Gaussian\n' % (parameter, 1e0*a1dot_prior[0], 1e0*a1dot_prior[1]))
         else: ## om_asc
             writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
     writefile.close()
@@ -205,7 +201,7 @@ def replace_pmparin_refepoch(pmparin, refepoch):
     writefile.writelines(lines)
     writefile.close()
 
-class Sine_deg(Prior):
+class __Sine_deg(Prior):
     """
     Note
     ----
@@ -238,3 +234,72 @@ class Sine_deg(Prior):
         _cdf[val > self.maximum] = 1
         _cdf[val < self.minimum] = 0
         return _cdf
+
+def get_parameters_from_shares(shares):
+    parameters = {}
+    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    NoP = number_of_pmparins = len(shares[0])
+    for i in range(len(roots)):
+        list_of_strings = group_elements_by_same_values(shares[i])
+        for string in list_of_strings:
+            parameter = roots[i] + string
+            parameters[parameter] = None
+    return parameters
+
+def group_elements_by_same_values(alist):
+    """
+    Input parameters
+    ----------------
+    alist : list of int
+
+    Return parameters
+    -----------------
+    
+    """
+    LoS = list_of_string = []
+    alist = np.array(alist)
+    GEI = grouped_element_indice = []
+    N = len(alist)
+    for i in range(len(alist)):
+        if (not i in GEI) and (alist[i]>=0):
+            each_group = np.where(alist==alist[i])[0]
+            each_group = each_group.tolist()
+            GEI += each_group
+            each_group.sort()
+            each_group = [str(element) for element in each_group]
+            str_of_group = '_' + '_'.join(each_group)
+            LoS.append(str_of_group)
+    return LoS
+
+
+def read_inits(initsfile):
+    #initsfile = pmparin.replace('pmpar.in', 'inits')
+    readfile = open(initsfile, 'r')
+    lines = readfile.readlines()
+    readfile.close()
+    dict_limits = {}
+    for line in lines:
+        if not line.startswith('#'):
+            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
+                if keyword in line:
+                    parameter = line.split(':')[0].strip()
+                    limits = line.split(':')[-1].strip().split(',')
+                    limits = [limit.strip() for limit in limits]
+                    limits[0] = float(limits[0])
+                    limits[1] = float(limits[1])
+                    dict_limits[parameter] = limits
+    return dict_limits 
+
+def create_priors_given_limits_dict(limits):
+    priors = PriorDict()
+    for parameter in limits.keys():
+        if limits[parameter][2] == 'Uniform':
+            priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
+                maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+        elif limits[parameter][2] == 'Gaussian':
+            priors[parameter] = bilby.prior.Gaussian(mu=limits[parameter][0],\
+                sigma=limits[parameter][1], name=parameter, latex_label=parameter)
+        elif limits[parameter][2] == 'Sine':
+            priors[parameter] = bilby.prior.Sine(minimum=limits[parameter][0],\
+                maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+    return priors

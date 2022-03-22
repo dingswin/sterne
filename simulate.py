@@ -44,9 +44,9 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         4) an arg both containing '.pmpar.in' and ending with '.par' should be avoided. 
     kwargs : key=value
         1) shares : 2-D array 
-            (default : [[0]*N,list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
+            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
             Used to assign shared parameters to fit and which paramters to not fit.
-            The size of shares is 8*N, 8 refers to the 8 parameters ('a1dot', 'dec','incl',
+            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',
             'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number
             of pmparins. As an example, for four pmparins, shares can be
             [[0,0,1,1], [0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
@@ -64,6 +64,10 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             'outdir' that will be passed to run_sampler().
         5) use_saved_samples : bool
             If True, run_sampler will be bypassed.
+        6) a1dot_constraints : a list of a list of 2 floats (default : False)
+            e.g. [[mu, sigma], []], (both in lt-sec/sec),
+            where mu and sigma refers to the Gaussian distribution for a1dot.
+            The length of a1dot_constraint needs to match len(pmparins), unless None.
 
     Caveats
     -------
@@ -74,14 +78,14 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
     ** Examples ** :
         1) For two pulsars in a globular cluster:
-            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[-1,0],[0,1],
-                [-1,0],[0,1], [0,1],[-1,0],[0,0],[0,1]])
+            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],
+                [-1,0],[0,1],[0,1],[-1,0],[0,0],[0,1]])
         2) For a pulsar with two in-beam calibrators:
             simulate(57444,'a.inits','i1.pmpar.in','p.par','i2.pmpar.in','p.par',
-                shares=[[0,0],[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
+                shares=[[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
         3) For two pulsars in a globular cluster sharing an in-beam calibrator:
             simulate(57444,'a.inits','i1p1.pmpar.in', '', 'i2p1.pmpar.in','', 'i1p2.pmpar.in',
-                'p2.par','i2p2.pmpar.in','p2.par',shares=[[-1,-1,0,0],[1,2,3,4],[-1,-1,0,0],
+                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[-1,-1,0,0],
                 [1,1,2,2],[1,1,2,2],[-1,-1,0,0],[1,1,1,1],[1,2,3,4]])
     """
     ##############################################################
@@ -110,13 +114,39 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         print('Unequal number of parfiles provided for pmparins.\
             See the docstring for more info. Aborting now.')
         sys.exit()
+
+    ##############################################################
+    #####################  parse kwargs  #########################
+    ##############################################################
     try:
         shares = kwargs['shares']
     except KeyError:
-        shares = [[0]*NoP, list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
+        shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
             [0]*NoP, list(range(NoP))]
-    
     print(pmparins, parfiles, initsfile, shares)
+    
+    try:
+        outdir = kwargs['outdir']
+    except KeyError:
+        outdir = 'outdir'
+    try:
+        use_saved_samples = kwargs['use_saved_samples']
+    except KeyError:
+        use_saved_samples = False
+
+    try:
+        iterations = kwargs['iterations']
+    except KeyError:
+        iterations = 100
+    try:
+        nwalkers = kwargs['nwalkers']
+    except KeyError:
+        nwalkers = 100
+
+    try:
+        a1dot_constraints = kwargs['a1dot_constraints']
+    except KeyError:
+        a1dot_constraint = False
     ##############################################################
     #################  get two list_of_dict ######################
     ##############################################################
@@ -145,43 +175,18 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     ##############################################################
     ###################### run simulations #######################
     ##############################################################
-    try:
-        outdir = kwargs['outdir']
-    except KeyError:
-        outdir = 'outdir'
     saved_posteriors = outdir + '/posterior_samples.dat'
-    try:
-        use_saved_samples = kwargs['use_saved_samples']
-    except KeyError:
-        use_saved_samples = False
     if not use_saved_samples:
         likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
-            shares, positions)
+            shares, positions, a1dot_constraints)
         #initsfile = pmparins[0].replace('pmpar.in', 'inits')
         #if not os.path.exists(initsfile):
         #    generate_initsfile(pmparin, refepoch)
         #generate_initsfile(refepoch, pmparins, parfiles, shares, 20)
-        limits = read_inits(initsfile)
+        limits = _priors.read_inits(initsfile)
         print(limits)
-        priors = {}
-        for parameter in limits.keys():
-            if limits[parameter][2] == 'Uniform':
-                priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
-                    maximum=limits[parameter][1], name=parameter, latex_label=parameter)
-            elif limits[parameter][2] == 'Gaussian':
-                priors[parameter] = bilby.prior.Gaussian(mu=limits[parameter][0],\
-                    sigma=limits[parameter][1], name=parameter, latex_label=parameter)
-            elif limits[parameter][2] == 'Sine':
-                priors[parameter] = bilby.prior.Sine(minimum=limits[parameter][0],\
-                    maximum=limits[parameter][1], name=parameter, latex_label=parameter)
-        try:
-            iterations = kwargs['iterations']
-        except KeyError:
-            iterations = 100
-        try:
-            nwalkers = kwargs['nwalkers']
-        except KeyError:
-            nwalkers = 100
+        priors = _priors.create_priors_given_limits_dict(limits)
+
         result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
             sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
         result.plot_corner()
@@ -199,7 +204,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad; a1dot in 1e0 lt-sec/sec.)\n')
+    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad.)\n')
     for p in parameters:
         if not 'om_asc' in p:
             dict_median[p] = howfun.sample2median(t[p])
@@ -237,29 +242,12 @@ def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timin
     return chi_sq, rchsq
 
 
-def read_inits(initsfile):
-    #initsfile = pmparin.replace('pmpar.in', 'inits')
-    readfile = open(initsfile, 'r')
-    lines = readfile.readlines()
-    readfile.close()
-    dict_limits = {}
-    for line in lines:
-        if not line.startswith('#'):
-            for keyword in ['a1dot', 'ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
-                if keyword in line:
-                    parameter = line.split(':')[0].strip()
-                    limits = line.split(':')[-1].strip().split(',')
-                    limits = [limit.strip() for limit in limits]
-                    limits[0] = float(limits[0])
-                    limits[1] = float(limits[1])
-                    dict_limits[parameter] = limits
-    return dict_limits 
 
 
 
 
 class Gaussianlikelihood(bilby.Likelihood):
-    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions):
+    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, a1dot_constraints=False):
         """
         Addition of multiple Gaussian likelihoods
 
@@ -274,8 +262,9 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.positions = positions
         self.shares = shares
         self.number_of_pmparins = len(self.LoD_VLBI)
+        self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = parse_a1dot_constraints(a1dot_constraints)
 
-        parameters = get_parameters_from_shares(self.shares)
+        parameters = _priors.get_parameters_from_shares(self.shares)
         print(parameters)
         super().__init__(parameters)
 
@@ -287,48 +276,29 @@ class Gaussianlikelihood(bilby.Likelihood):
         for i in range(self.number_of_pmparins):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
             log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
-            
-        #ETRA = equivalent_total_res_a1dot = kopeikin_effects.calculate_equivalent_total_res_a1dot(self.LoD_timing, self.parameters)
-        #print('ETRA=%.20f' % ETRA)
-        #log_p += -0.5 * ETRA**2
+        
+        if self.a1dot_constraints:
+            modeled_a1dots = kopeikin_effects.calculate_a1dot_pm(self.LoD_timing, self.parameters)
+            #print('ETRA=%.20f' % ETRA)
+            res_a1dots = modeled_a1dots - self.a1dot_mus
+            log_p += -0.5 * np.sum((res_a1dots / self.a1dot_sigmas)**2)
         return log_p
     
 
-def get_parameters_from_shares(shares):
-    parameters = {}
-    roots = parameter_roots = ['a1dot', 'dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
-    NoP = number_of_pmparins = len(shares[0])
-    for i in range(len(roots)):
-        list_of_strings = group_elements_by_same_values(shares[i])
-        for string in list_of_strings:
-            parameter = roots[i] + string
-            parameters[parameter] = None
-    return parameters
-def group_elements_by_same_values(alist):
-    """
-    Input parameters
-    ----------------
-    alist : list of int
 
-    Return parameters
-    -----------------
-    
-    """
-    LoS = list_of_string = []
-    alist = np.array(alist)
-    GEI = grouped_element_indice = []
-    N = len(alist)
-    for i in range(len(alist)):
-        if (not i in GEI) and (alist[i]>=0):
-            each_group = np.where(alist==alist[i])[0]
-            each_group = each_group.tolist()
-            GEI += each_group
-            each_group.sort()
-            each_group = [str(element) for element in each_group]
-            str_of_group = '_' + '_'.join(each_group)
-            LoS.append(str_of_group)
-    return LoS
-
+def parse_a1dot_constraints(a1dot_constraints):
+    a1dot_mus = np.array([])
+    a1dot_sigmas = np.array([])
+    for a1dot_constraint in a1dot_constraints:
+        if len(a1dot_constraint) == 2:
+            a1dot_mu, a1dot_sigma = a1dot_constraint
+            a1dot_mus = np.append(a1dot_mus, a1dot_mu)
+            a1dot_sigmas = np.append(a1dot_sigmas, a1dot_sigma)
+    if len(a1dot_mus) == 0:
+        a1dot_constraints = False
+    else:
+        a1dot_constraints = True
+    return a1dot_constraints, a1dot_mus, a1dot_sigmas
 
 
 
