@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 ###########################################################################
 ###-- NOTICE: RUN UNDER pmparesults directories !!!
+###-- A shitty main code still in progress
 ############################################################################
 import os,sys
 from optparse import OptionParser

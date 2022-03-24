@@ -207,3 +207,20 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     dRA = (b.item(0,0)/np.cos(dec)).value #that can be directly added to RA
     dDEC = b.item(1,0)
     return np.array([dRA, dDEC]) #in mas
+
+
+
+
+
+
+class reflex_motion_detectability:
+    """
+    Purpose
+    -------
+    This class is used to 
+        1) quantify VLBI measurability of reflex motions,
+        2) roughly assess intrinsic a1dot (so that extrinsic a1dot can be more reliable).
+    """
+    def __init__(self):
+        pass
+    
