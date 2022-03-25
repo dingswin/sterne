@@ -39,6 +39,10 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         2) om_asc_prior : list of 2 floats
             in deg. e.g. [lower_limit, upper_limit] for all orbit ascending node longitudes.
             ## in future, it will be extended to 2D array.
+        3) efac_prior : list of 2 floats
+            EFAC is used to find appropriate systematics following the relation:
+            err_new**2 = err_random**2 + (EFAC * err_sys_old)**2.
+            Here, the EFAC_prior would apply to all EFACs.
     """
     HMS = HowManySigma
     roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
@@ -52,6 +56,10 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         om_asc_prior = kwargs['om_asc_prior']
     except KeyError:
         om_asc_prior = [0, 360]
+    try:
+        efac_prior = kwargs['efac_prior']
+    except KeyError:
+        efac_prior = [0, 10]
     inits = pmparins[0].replace('.pmpar.in','')
     inits = inits + '.inits'
     writefile = open(inits, 'w')
@@ -63,14 +71,18 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl in rad; om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():
-        if (not 'om_asc' in parameter) and (not 'incl' in parameter):
+        if not (('om_asc' in parameter) or ('incl' in parameter) or ('efac' in parameter)):
             related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
             writefile.write('%s: %.11f,%.11f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
-        else: ## om_asc
+        elif 'om_asc' in parameter: 
             writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
+        elif 'efac' in parameter:
+            writefile.write('%s: %f,%f,Uniform\n' % (parameter, efac_prior[0], efac_prior[1]))
+        else:
+            pass
     writefile.close()
 
 def create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma=20):
@@ -237,7 +249,7 @@ class __Sine_deg(Prior):
 
 def get_parameters_from_shares(shares):
     parameters = {}
-    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    roots = parameter_roots = ['dec', 'efac', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
     NoP = number_of_pmparins = len(shares[0])
     for i in range(len(roots)):
         list_of_strings = group_elements_by_same_values(shares[i])
@@ -280,7 +292,7 @@ def read_inits(initsfile):
     dict_limits = {}
     for line in lines:
         if not line.startswith('#'):
-            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
+            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc', 'efac']:
                 if keyword in line:
                     parameter = line.split(':')[0].strip()
                     limits = line.split(':')[-1].strip().split(',')

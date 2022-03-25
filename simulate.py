@@ -13,6 +13,7 @@ import howfun
 from astropy.table import Table
 from model import reflex_motion, kopeikin_effects
 from model.positions import positions
+from model.positions import filter_dictionary_of_parameter_with_index
 from sterne import priors as _priors
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """
@@ -44,12 +45,12 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         4) an arg both containing '.pmpar.in' and ending with '.par' should be avoided. 
     kwargs : key=value
         1) shares : 2-D array 
-            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
+            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
             Used to assign shared parameters to fit and which paramters to not fit.
-            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',
+            The size of shares is 8*N, 8 refers to the 8 parameters ('dec','efac', 'incl',
             'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number
             of pmparins. As an example, for four pmparins, shares can be
-            [[0,0,1,1], [0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
+            [[0,0,1,1],[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
             Same numbers in the same row shares the same parameter (e.g. 'px' is shared by all
             pmparins). Furthermore, if shares[i][j]<0, it means the inference for
             parameter[i] with pmparins[j] is turned off. This turn-off function is not so
@@ -68,6 +69,14 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             e.g. [[mu, sigma], []], (both in lt-sec/sec),
             where mu and sigma refers to the Gaussian distribution for a1dot.
             The length of a1dot_constraint needs to match len(pmparins), unless None.
+        7) pmparin_preliminaries : list of str (default : None)
+            A list of pmpar.in.preliminary files which record random errors. Once this is provided,
+            EFAC will be fit for. Otherwise, EFAC will not be inferred (accordingly one more 
+            degree of freedom). When pmparin_preliminaries==None, the inference for efac would be
+            turned off.
+            The error is corrected following the relation:
+            errs_new**2 = errs_random**2 + (efac * errs_sys)**2, where errs_random and errs_sys
+            stand for random errors and systematic errors, respectively.
 
     Caveats
     -------
@@ -122,7 +131,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         shares = kwargs['shares']
     except KeyError:
         shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
-            [0]*NoP, list(range(NoP))]
+            [0]*NoP, [0]*NoP, list(range(NoP))]
     print(pmparins, parfiles, initsfile, shares)
     
     try:
@@ -146,7 +155,17 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     try:
         a1dot_constraints = kwargs['a1dot_constraints']
     except KeyError:
-        a1dot_constraint = False
+        a1dot_constraints = False
+
+    try:
+        pmparin_preliminaries = kwargs['pmparin_preliminaries']
+        if len(pmparin_preliminaries) != NoP:
+            print('The number of pmpar.in.preliminary files has to\
+                match that of pmpar.in files. Exiting for now.')
+            sys.exit(1)
+    except KeyError:
+        pmparin_preliminaries = None
+        shares[1] = [-1] * NoP ## turn off efac inference
     ##############################################################
     #################  get two list_of_dict ######################
     ##############################################################
@@ -171,6 +190,16 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         dictionary['errs'] = errs
         list_of_dict_VLBI.append(dictionary)
     print(list_of_dict_VLBI)
+
+    if pmparin_preliminaries != None:
+        for i in range(NoP):
+            t = readpmparin(pmparin_preliminaries[i])
+            errs_random = np.concatenate([t['errRA'], t['errDEC']])
+            list_of_dict_VLBI[i]['errs_random'] = errs_random
+            errs = list_of_dict_VLBI[i]['errs']
+            errs_sys = (errs**2 - errs_random**2)**0.5
+            list_of_dict_VLBI[i]['errs_sys'] = errs_sys
+
     
     ##############################################################
     ###################### run simulations #######################
@@ -211,7 +240,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
             dict_bound[p] = howfun.sample2median_range(t[p], 1)
             writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
                 dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
-        else:
+        else: ## for om_asc
             dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
             writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
     
@@ -235,13 +264,23 @@ def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timin
     NoO = number_of_observations = 0
     for i in range(len(LoD_VLBI)):
         res = LoD_VLBI[i]['radecs'] - positions(refepoch, LoD_VLBI[i]['epochs'], LoD_timing[i], i, dict_median)
-        chi_sq += np.sum((res/LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+        errs_new = adjust_errs_with_efac(LoD_VLBI[i], dict_median, i)
+        chi_sq += np.sum((res/errs_new)**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
         NoO += 2 * len(LoD_VLBI[i]['epochs'])
     DoF = degree_of_freedom = NoO - len(dict_median)
     rchsq = chi_sq / DoF
     return chi_sq, rchsq
 
-
+def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
+    FP = filter_dictionary_of_parameter_with_index(parameters_dict, parameter_filter_index)
+    Ps = list(FP.keys())
+    Ps.sort()
+    efac = parameters_dict[Ps[1]]
+    if efac != -999: 
+        errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * VLBI_dict['errs_sys'])**2
+    else: ## if efac is not to be inferred
+        errs_new_sq = VLBI_dict['errs']**2
+    return errs_new_sq**0.5
 
 
 
@@ -262,11 +301,18 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.positions = positions
         self.shares = shares
         self.number_of_pmparins = len(self.LoD_VLBI)
-        self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = parse_a1dot_constraints(a1dot_constraints)
+        #self.pmparin_preliminaries = pmparin_preliminaries
+        if a1dot_constraints != False:
+            self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = parse_a1dot_constraints(a1dot_constraints)
+        else:
+            self.a1dot_constraints = False
+
 
         parameters = _priors.get_parameters_from_shares(self.shares)
         print(parameters)
         super().__init__(parameters)
+
+        
 
     def log_likelihood(self):
         """
@@ -275,7 +321,11 @@ class Gaussianlikelihood(bilby.Likelihood):
         log_p = 0
         for i in range(self.number_of_pmparins):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
-            log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+            #if self.pmparin_preliminaries == None:
+            #    log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+            errs_new = adjust_errs_with_efac(self.LoD_VLBI[i], self.parameters, i)
+            log_p += -0.5 * np.sum((res/errs_new)**2)
+            log_p += -1 * np.sum(np.log(errs_new))
         
         if self.a1dot_constraints:
             modeled_a1dots = kopeikin_effects.calculate_a1dot_pm(self.LoD_timing, self.parameters)

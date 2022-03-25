@@ -24,7 +24,7 @@ def positions(refepoch, epochs, list_of_dict_timing, parameter_filter_index, dic
     dec_models = np.array([])
     for i in range(len(epochs)):
         ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[0]],\
-            FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], list_of_dict_timing)
+            FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], FP[Ps[7]], list_of_dict_timing)
         ra_models = np.append(ra_models, ra_model)
         dec_models = np.append(dec_models, dec_model)
     return np.concatenate([ra_models, dec_models])
@@ -50,7 +50,10 @@ def filter_dictionary_of_parameter_with_index(dict_of_parameters, filter_index):
     filtered_dict_of_parameters = auto_fill_disabled_parameters(filtered_dict_of_parameters)
     return filtered_dict_of_parameters
 def auto_fill_disabled_parameters(filtered_dict_of_parameters):
-    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    """
+    so that each parameter can be pinpointed with a number
+    """
+    roots = parameter_roots = ['dec', 'efac', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
     for root in roots:
         if not any(root in parameter for parameter in filtered_dict_of_parameters.keys()):
             filtered_dict_of_parameters[root] = -999

@@ -59,7 +59,7 @@ def calculate_a1dot_pm(list_of_dict_timing, parameters_dict):
             Ps = list(FP.keys())
             Ps.sort()
             a1 = (LoD_timing[i]['a1'] / constants.c / u.s).value ## convert to lt-sec
-            modeled_a1dot = a1dot_pm_formalisim(a1, FP[Ps[1]], FP[Ps[2]], FP[Ps[3]], FP[Ps[4]])
+            modeled_a1dot = a1dot_pm_formalisim(a1, FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]])
             list_of_modeled_a1dot = np.append(list_of_modeled_a1dot, modeled_a1dot)
 
     if len(list_of_modeled_a1dot) == 0:
