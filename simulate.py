@@ -189,8 +189,6 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         dictionary['radecs'] = radecs
         dictionary['errs'] = errs
         list_of_dict_VLBI.append(dictionary)
-    print(list_of_dict_VLBI)
-
     if pmparin_preliminaries != None:
         for i in range(NoP):
             t = readpmparin(pmparin_preliminaries[i])
@@ -199,6 +197,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             errs = list_of_dict_VLBI[i]['errs']
             errs_sys = (errs**2 - errs_random**2)**0.5
             list_of_dict_VLBI[i]['errs_sys'] = errs_sys
+    print(list_of_dict_VLBI)
 
     
     ##############################################################
@@ -275,7 +274,7 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
     FP = filter_dictionary_of_parameter_with_index(parameters_dict, parameter_filter_index)
     Ps = list(FP.keys())
     Ps.sort()
-    efac = parameters_dict[Ps[1]]
+    efac = FP[Ps[1]]
     if efac != -999: 
         errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * VLBI_dict['errs_sys'])**2
     else: ## if efac is not to be inferred
