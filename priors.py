@@ -39,11 +39,14 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         2) om_asc_prior : list of 2 floats
             in deg. e.g. [lower_limit, upper_limit] for all orbit ascending node longitudes.
             ## in future, it will be extended to 2D array.
-        3) efac_prior : list of 2 floats
+        3) efac_prior : list of 2 floats (default : [0,15])
             EFAC is used to find appropriate systematics following the relation:
             err_new**2 = err_random**2 + (EFAC * err_sys_old)**2.
             Here, the EFAC_prior would apply to all EFACs.
     """
+    if type(pmparins) != list:
+        print('pmparins has to be a list. Exiting for now.')
+        sys.exit(1)
     HMS = HowManySigma
     roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
     dict_limits = create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma)
@@ -59,7 +62,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     try:
         efac_prior = kwargs['efac_prior']
     except KeyError:
-        efac_prior = [0, 10]
+        efac_prior = [0, 15]
     inits = pmparins[0].replace('.pmpar.in','')
     inits = inits + '.inits'
     writefile = open(inits, 'w')

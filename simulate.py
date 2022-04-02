@@ -55,11 +55,11 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             pmparins). Furthermore, if shares[i][j]<0, it means the inference for
             parameter[i] with pmparins[j] is turned off. This turn-off function is not so
             useful now, but may be helpful in future.
-        2) iterations : float (default : 100)
+        2) iterations : float (default : 200)
             'iterations' that will be passed to bilby.run_sampler().
             Changing "iterations" to over 500 would avoid fuzzy corner plots, while
             "interations"=1000 would make smooth corner plots.
-        3) nwalkers : float
+        3) nwalkers : float (default : 30)
             'nwalkers' that will be passed to bilby.run_sampler().
         4) outdir : float
             'outdir' that will be passed to run_sampler().
@@ -146,11 +146,11 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     try:
         iterations = kwargs['iterations']
     except KeyError:
-        iterations = 100
+        iterations = 200
     try:
         nwalkers = kwargs['nwalkers']
     except KeyError:
-        nwalkers = 100
+        nwalkers = 30
 
     try:
         a1dot_constraints = kwargs['a1dot_constraints']
@@ -192,6 +192,9 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     if pmparin_preliminaries != None:
         for i in range(NoP):
             t = readpmparin(pmparin_preliminaries[i])
+            if not (np.array(t['epoch']) == list_of_dict_VLBI[i]['epochs']).all():
+                print('Epochs of the pmpar.in.preliminary files should match those of the pmpar.in files; exiting for now.')
+                sys.exit(1)
             errs_random = np.concatenate([t['errRA'], t['errDEC']])
             list_of_dict_VLBI[i]['errs_random'] = errs_random
             errs = list_of_dict_VLBI[i]['errs']
@@ -320,10 +323,8 @@ class Gaussianlikelihood(bilby.Likelihood):
         log_p = 0
         for i in range(self.number_of_pmparins):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
-            #if self.pmparin_preliminaries == None:
-            #    log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
-            errs_new = adjust_errs_with_efac(self.LoD_VLBI[i], self.parameters, i)
-            log_p += -0.5 * np.sum((res/errs_new)**2)
+            errs_new = adjust_errs_with_efac(self.LoD_VLBI[i], self.parameters, i) 
+            log_p += -0.5 * np.sum((res/errs_new)**2) ##if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
             log_p += -1 * np.sum(np.log(errs_new))
         
         if self.a1dot_constraints:
@@ -406,6 +407,7 @@ def readpmparin(pmparin):
             errRAs = np.append(errRAs, errRA)
             errDECs = np.append(errDECs, errDEC)
     t = Table([epochs, RAs, errRAs, DECs, errDECs], names=['epoch', 'RA', 'errRA', 'DEC', 'errDEC'])
+    t.sort('epoch')
     return t
 
 def decyear2mjd(epoch):
