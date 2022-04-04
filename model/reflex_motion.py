@@ -8,6 +8,7 @@ from astropy import constants
 import os, sys
 import howfun
 from psrqpy import QueryATNF
+import priors
 
 def generate_parfile(pulsar):
     """
@@ -223,4 +224,46 @@ class reflex_motion_detectability:
     """
     def __init__(self):
         pass
-    
+    def calculate_eta_orb(self, a1, px, err_px, rcs):
+        """
+        Input parameter
+        ---------------
+        a1 : float
+            projected semi-major axis (in lt-sec).
+        px : float
+            parallax in mas.
+        err_px : float
+            error of parallax in mas.
+        rcs : float
+            reduced chi-square.
+        """
+        a1 *= constants.c * u.s
+        a1_AU = a1.to(u.AU).value
+        eta_orb = 2 * a1_AU * px / err_px / np.sqrt(rcs)
+        return eta_orb
+    def calculate_eta_orb_with_pmparin(self, pmparin, **kwargs):
+        """
+        Input parameter
+        ---------------
+        pmparin : str
+            pmpar.in file that is used to derive px, err_px and rcs.
+        kwargs :
+            a1 : float
+                projected semi-major axis (in lt-sec).
+        """
+        pmparout = pmparin.replace('pmpar.in','pmpar.out')
+        os.system("pmpar %s > %s" % (pmparin, pmparout))
+        [ra, error_ra, dec, error_dec, mu_a, error_mu_a, mu_d, error_mu_d, px, err_px, rcs, junk] = priors.readpmparout(pmparout)
+        
+        try:
+            a1 = kwargs['a1']
+        except KeyError:
+            print('a1 is not provided; fectching from PSRCAT')
+            psrname = pmparin.split('.')[0]
+            print('Guess the pulsar name to be %s' % psrname)
+            query1 = QueryATNF(psrs=[psrname], params=['A1'])
+            a1 = float(query1['A1'][0])
+            print(a1)
+        
+        eta_orb = self.calculate_eta_orb(a1, px, err_px, rcs)
+        return eta_orb
