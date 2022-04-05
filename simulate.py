@@ -77,6 +77,9 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             The error is corrected following the relation:
             errs_new**2 = errs_random**2 + (efac * errs_sys)**2, where errs_random and errs_sys
             stand for random errors and systematic errors, respectively.
+         8) sin_incl_constraints : a list of list of two floats (default : None)
+            additional constraints on incl enforced with the Likeliood part.
+            e.g. [[mu_sin_incl, err_sin_incl]].
 
     Caveats
     -------
@@ -158,6 +161,11 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         a1dot_constraints = False
 
     try:
+        sin_incl_constraints = kwargs['sin_incl_constraints']
+    except KeyError:
+        sin_incl_constraints = None
+
+    try:
         pmparin_preliminaries = kwargs['pmparin_preliminaries']
         if len(pmparin_preliminaries) != NoP:
             print('The number of pmpar.in.preliminary files has to\
@@ -209,7 +217,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     saved_posteriors = outdir + '/posterior_samples.dat'
     if not use_saved_samples:
         likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
-            shares, positions, a1dot_constraints)
+            shares, positions, a1dot_constraints, sin_incl_constraints)
         #initsfile = pmparins[0].replace('pmpar.in', 'inits')
         #if not os.path.exists(initsfile):
         #    generate_initsfile(pmparin, refepoch)
@@ -288,7 +296,7 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
 
 
 class Gaussianlikelihood(bilby.Likelihood):
-    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, a1dot_constraints=False):
+    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, a1dot_constraints=False, sin_incl_constraints=None):
         """
         Addition of multiple Gaussian likelihoods
 
@@ -305,9 +313,15 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.number_of_pmparins = len(self.LoD_VLBI)
         #self.pmparin_preliminaries = pmparin_preliminaries
         if a1dot_constraints != False:
-            self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = parse_a1dot_constraints(a1dot_constraints)
+            self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = self.parse_a1dot_constraints(a1dot_constraints)
         else:
             self.a1dot_constraints = False
+
+        if sin_incl_constraints != None:
+            self.sin_incl_constraints, self.sin_incl_mus, self.sin_incl_sigmas = self.parse_sin_incl_constraints(sin_incl_constraints)
+        else:
+            self.sin_incl_constraints = False
+            
 
 
         parameters = _priors.get_parameters_from_shares(self.shares)
@@ -332,25 +346,49 @@ class Gaussianlikelihood(bilby.Likelihood):
             #print('ETRA=%.20f' % ETRA)
             res_a1dots = modeled_a1dots - self.a1dot_mus
             log_p += -0.5 * np.sum((res_a1dots / self.a1dot_sigmas)**2)
+
+        if self.sin_incl_constraints:
+            log_p += self.log_p_sin_incl_residuals(self.parameters, self.sin_incl_mus, self.sin_incl_sigmas)
         return log_p
     
 
+    def parse_a1dot_constraints(self, a1dot_constraints):
+        a1dot_mus = np.array([])
+        a1dot_sigmas = np.array([])
+        for a1dot_constraint in a1dot_constraints:
+            if len(a1dot_constraint) == 2:
+                a1dot_mu, a1dot_sigma = a1dot_constraint
+                a1dot_mus = np.append(a1dot_mus, a1dot_mu)
+                a1dot_sigmas = np.append(a1dot_sigmas, a1dot_sigma)
+        if len(a1dot_mus) == 0:
+            a1dot_constraints = False
+        else:
+            a1dot_constraints = True
+        return a1dot_constraints, a1dot_mus, a1dot_sigmas
 
-def parse_a1dot_constraints(a1dot_constraints):
-    a1dot_mus = np.array([])
-    a1dot_sigmas = np.array([])
-    for a1dot_constraint in a1dot_constraints:
-        if len(a1dot_constraint) == 2:
-            a1dot_mu, a1dot_sigma = a1dot_constraint
-            a1dot_mus = np.append(a1dot_mus, a1dot_mu)
-            a1dot_sigmas = np.append(a1dot_sigmas, a1dot_sigma)
-    if len(a1dot_mus) == 0:
-        a1dot_constraints = False
-    else:
-        a1dot_constraints = True
-    return a1dot_constraints, a1dot_mus, a1dot_sigmas
+    def parse_sin_incl_constraints(self, sin_incl_constraints):
+        sin_incl_mus = np.array([])
+        sin_incl_sigmas = np.array([])
+        for sin_incl_constraint in sin_incl_constraints:
+            if len(sin_incl_constraint) == 2:
+                sin_incl_mu, sin_incl_sigma = sin_incl_constraint
+                sin_incl_mus = np.append(sin_incl_mus, sin_incl_mu)
+                sin_incl_sigmas = np.append(sin_incl_sigmas, sin_incl_sigma)
+        if len(sin_incl_mus) == 0:
+            sin_incl_constraints = False
+        else:
+            sin_incl_constraints = True
+        return sin_incl_constraints, sin_incl_mus, sin_incl_sigmas
 
-
+    def log_p_sin_incl_residuals(self, dict_parameters, sin_incl_mus, sin_incl_sigmas):
+        log_p = 0
+        for key in dict_parameters:
+            if 'incl' in key:
+                pmparin_indice, parameter_root = _priors.parameter_name_to_pmparin_indice(key)
+                index = pmparin_indice[0]
+                sin_incl_residual = np.sin(dict_parameters[key]) - sin_incl_mus[index]
+                log_p += -0.5 * (sin_incl_residual/sin_incl_sigmas[index])**2
+        return log_p
 
 
 def dms2rad(ra, dec):
