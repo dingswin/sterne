@@ -77,11 +77,6 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             The error is corrected following the relation:
             errs_new**2 = errs_random**2 + (efac * errs_sys)**2, where errs_random and errs_sys
             stand for random errors and systematic errors, respectively.
-         8) sin_incl_constraints : a list of list of two floats and one str (default : None)
-            additional constraints on incl enforced with the Likeliood part. Its length should be equal
-            to the number of pmparins. When no constraint is given for one pmparin, just use [].
-            e.g. [[mu_sin_incl, err_sin_incl, 'Gaussian'],[]], or [[min_sin_incl, max_sin_incl, 'limits']],
-            or even [[mu_sin_incl, err_sin_incl, 'Gaussian'],[min_sin_incl, max_sin_incl, 'limits']].
 
     Caveats
     -------
@@ -347,7 +342,6 @@ class Gaussianlikelihood(bilby.Likelihood):
 
         if len(self.dict_sin_incl_Gaussian_constraints) != 0:
             for parameter in self.dict_sin_incl_Gaussian_constraints:
-                #log_p += self.log_p_sin_incl_residuals(self.parameters, self.sin_incl_mus, self.sin_incl_sigmas)
                 sin_incl_mu, sin_incl_sigma = self.dict_sin_incl_Gaussian_constraints[parameter]
                 res = sin_incl_mu - np.sin(self.parameters[parameter])
                 log_p += -0.5 * (res / sin_incl_sigma)**2

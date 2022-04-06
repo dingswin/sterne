@@ -336,7 +336,7 @@ def create_priors_given_limits_dict(limits, DoD_additional_constraints):
         for parameter in SILC:
             parameter_virtual = parameter.replace('incl', 'sin_incl')
             sin_incl_min, sin_incl_max = SILC[parameter][:2]
-            priors[parameter_virtual] = Constraint(minimum=sin_incl_min, maximum=sin_incl_max)
+            priors[parameter_virtual] = bilby.core.prior.Constraint(minimum=sin_incl_min, maximum=sin_incl_max)
 
     for parameter in limits.keys():
         if limits[parameter][2] == 'Uniform':

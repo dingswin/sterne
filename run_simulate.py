@@ -28,9 +28,6 @@ parser.add_argument("-n", "--nwalkers", dest="nwalkers", type=int, default=30,
 parser.add_argument("-a", "--a1dot", dest="a1dot_constraints", type=str, 
                     default=False, metavar="a1dot_constraints", 
                     help="a1dot constraints, a list of list of 2 floats. e.g. [[mu, sigma], []], (both in lt-sec/sec), where mu and sigma refers to the Gaussian distribution for a1dot. The length of a1dot_constraint needs to match len(pmparins), unless None.")
-parser.add_argument("-l", "--incl", dest="sin_incl_constraints", type=str, 
-                    default=None, metavar="sin_incl_constraints", 
-                    help="sin(inclination) constraints, a list of list of 2 floats. e.g. [[mu, sigma], []], where mu and sigma refers to the Gaussian distribution for sin(i). The length of sin_incl_constraints needs to match len(pmparins), unless None.")
 
 options         = parser.parse_args()
 refepoch        = options.epoch
@@ -43,7 +40,6 @@ kwargs['nwalkers'] = options.nwalkers
 kwargs['pmparin_preliminaries'] = options.prelimpmpars
 exec("kwargs['shares'] = %s" % options.shares)
 exec("kwargs['a1dot_constraints'] = %s" % options.a1dot_constraints)
-exec("kwargs['sin_incl_constraints'] = %s" % options.sin_incl_constraints)
 
 
 print('\ndeleting old files in the outdir directory now.\n')
