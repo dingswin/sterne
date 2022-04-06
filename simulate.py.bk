@@ -4,6 +4,7 @@ sterne.simulate.py is written in python3 by Hao Ding.
 The main code to run is simulate().
 """
 import bilby
+from bilby.core.prior import PriorDict, Constraint
 from astropy.time import Time
 import numpy as np
 import astropy.units as u
@@ -13,8 +14,6 @@ import howfun
 from astropy.table import Table
 from model import reflex_motion, kopeikin_effects
 from model.positions import positions
-from model.positions import filter_dictionary_of_parameter_with_index
-from sterne import priors as _priors
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """
     Input parameters
@@ -45,62 +44,42 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         4) an arg both containing '.pmpar.in' and ending with '.par' should be avoided. 
     kwargs : key=value
         1) shares : 2-D array 
-            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
+            (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
             Used to assign shared parameters to fit and which paramters to not fit.
-            The size of shares is 8*N, 8 refers to the 8 parameters ('dec','efac', 'incl',
+            The size of shares is 7*N, 7 refers to the 7 parameters ('dec','incl',
             'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number
             of pmparins. As an example, for four pmparins, shares can be
-            [[0,0,1,1],[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
-            Same numbers in the same row shares the same parameter (e.g. 'px' is shared by all
+            [[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]]. Same
+            numbers in the same row shares the same parallax (e.g. 'px' is shared by all
             pmparins). Furthermore, if shares[i][j]<0, it means the inference for
             parameter[i] with pmparins[j] is turned off. This turn-off function is not so
             useful now, but may be helpful in future.
-        2) iterations : float (default : 200)
+        2) iterations : float (default : 100)
             'iterations' that will be passed to bilby.run_sampler().
             Changing "iterations" to over 500 would avoid fuzzy corner plots, while
             "interations"=1000 would make smooth corner plots.
-        3) nwalkers : float (default : 30)
+        3) nwalkers : float
             'nwalkers' that will be passed to bilby.run_sampler().
         4) outdir : float
             'outdir' that will be passed to run_sampler().
         5) use_saved_samples : bool
             If True, run_sampler will be bypassed.
-        6) a1dot_constraints : a list of a list of 2 floats (default : False)
-            e.g. [[mu, sigma], []], (both in lt-sec/sec),
-            where mu and sigma refers to the Gaussian distribution for a1dot.
-            The length of a1dot_constraint needs to match len(pmparins), unless None.
-        7) pmparin_preliminaries : list of str (default : None)
-            A list of pmpar.in.preliminary files which record random errors. Once this is provided,
-            EFAC will be fit for. Otherwise, EFAC will not be inferred (accordingly one more 
-            degree of freedom). When pmparin_preliminaries==None, the inference for efac would be
-            turned off.
-            The error is corrected following the relation:
-            errs_new**2 = errs_random**2 + (efac * errs_sys)**2, where errs_random and errs_sys
-            stand for random errors and systematic errors, respectively.
-         8) sin_incl_constraints : a list of list of two floats and one str (default : None)
-            additional constraints on incl enforced with the Likeliood part. Its length should be equal
-            to the number of pmparins. When no constraint is given for one pmparin, just use [].
-            e.g. [[mu_sin_incl, err_sin_incl, 'Gaussian'],[]], or [[min_sin_incl, max_sin_incl, 'limits']],
-            or even [[mu_sin_incl, err_sin_incl, 'Gaussian'],[min_sin_incl, max_sin_incl, 'limits']].
-
-    Caveats
-    -------
-    We assume a1dot is predominantly attributed to the variation of inclination due to 
-        the proper motion (Kopeikin, 1996), which is normally valid for pulsars in wide orbits.
-        Should there be a remarkable a1dot owing to gravitational-wave damping, the reflex
-        motion is normally not prominent (as the orbit is usually compact).
+        6) a1dot_constraints : list of list of two floats
+            e.g. [[a1dot_minimum, a1dot_maximum]].
+            Each list element provides a1dot boundary for one binary system.
+            For explanation of a1dot see sterne.model.kopeikin_effects.
 
     ** Examples ** :
         1) For two pulsars in a globular cluster:
-            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],
-                [-1,0],[0,1],[0,1],[-1,0],[0,0],[0,1]])
+            simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],[-1,0],
+                [0,1], [0,1],[-1,0],[0,0],[0,1]])
         2) For a pulsar with two in-beam calibrators:
             simulate(57444,'a.inits','i1.pmpar.in','p.par','i2.pmpar.in','p.par',
                 shares=[[0,1],[0,0],[0,0],[0,0],[0,0],[0,0],[0,1]])
         3) For two pulsars in a globular cluster sharing an in-beam calibrator:
             simulate(57444,'a.inits','i1p1.pmpar.in', '', 'i2p1.pmpar.in','', 'i1p2.pmpar.in',
-                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[-1,-1,0,0],
-                [1,1,2,2],[1,1,2,2],[-1,-1,0,0],[1,1,1,1],[1,2,3,4]])
+                'p2.par','i2p2.pmpar.in','p2.par',shares=[[1,2,3,4],[0,0,1,1],[1,1,2,2],
+                [1,1,2,2],[0,0,1,1],[1,1,1,1],[1,2,3,4]])
     """
     ##############################################################
     ############ parse args to get pmparins, parfiles ############
@@ -130,54 +109,40 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         sys.exit()
 
     ##############################################################
-    #####################  parse kwargs  #########################
+    ############ parse kwargs                         ############
     ##############################################################
     try:
         shares = kwargs['shares']
     except KeyError:
         shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
-            [0]*NoP, [0]*NoP, list(range(NoP))]
+            [0]*NoP, list(range(NoP))]
+    
     print(pmparins, parfiles, initsfile, shares)
+    
+    try:
+        a1dot_constraints = turn_a1dot_constraints_to_dict(kwargs['a1dot_constraints'])
+    except KeyError:
+        a1dot_constraints = None
     
     try:
         outdir = kwargs['outdir']
     except KeyError:
         outdir = 'outdir'
+    saved_posteriors = outdir + '/posterior_samples.dat'
     try:
         use_saved_samples = kwargs['use_saved_samples']
     except KeyError:
         use_saved_samples = False
-
+    
     try:
         iterations = kwargs['iterations']
     except KeyError:
-        iterations = 200
+        iterations = 100
     try:
         nwalkers = kwargs['nwalkers']
     except KeyError:
-        nwalkers = 30
-
-    try:
-        a1dot_constraints = kwargs['a1dot_constraints']
-    except KeyError:
-        a1dot_constraints = False
-
-    try:
-        sin_incl_Gaussian_constraints, sin_incl_limits_constraints =\
-            divide_sin_incl_constraints_into_limits_and_Gaussian_ones(kwargs['sin_incl_constraints')
-    except KeyError:
-        sin_incl_Gaussian_constraints = None
-        sin_incl_limits_constraints = None
-
-    try:
-        pmparin_preliminaries = kwargs['pmparin_preliminaries']
-        if len(pmparin_preliminaries) != NoP:
-            print('The number of pmpar.in.preliminary files has to\
-                match that of pmpar.in files. Exiting for now.')
-            sys.exit(1)
-    except KeyError:
-        pmparin_preliminaries = None
-        shares[1] = [-1] * NoP ## turn off efac inference
+        nwalkers = 100
+    
     ##############################################################
     #################  get two list_of_dict ######################
     ##############################################################
@@ -201,74 +166,81 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         dictionary['radecs'] = radecs
         dictionary['errs'] = errs
         list_of_dict_VLBI.append(dictionary)
-    if pmparin_preliminaries != None:
-        for i in range(NoP):
-            t = readpmparin(pmparin_preliminaries[i])
-            if not (np.array(t['epoch']) == list_of_dict_VLBI[i]['epochs']).all():
-                print('Epochs of the pmpar.in.preliminary files should match those of the pmpar.in files; exiting for now.')
-                sys.exit(1)
-            errs_random = np.concatenate([t['errRA'], t['errDEC']])
-            list_of_dict_VLBI[i]['errs_random'] = errs_random
-            errs = list_of_dict_VLBI[i]['errs']
-            errs_sys = (errs**2 - errs_random**2)**0.5
-            list_of_dict_VLBI[i]['errs_sys'] = errs_sys
     print(list_of_dict_VLBI)
-
     
     ##############################################################
     ###################### run simulations #######################
     ##############################################################
-    saved_posteriors = outdir + '/posterior_samples.dat'
     if not use_saved_samples:
         likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
-            shares, positions, a1dot_constraints, sin_incl_Gaussian_constraints)
+            shares, positions)
         #initsfile = pmparins[0].replace('pmpar.in', 'inits')
         #if not os.path.exists(initsfile):
         #    generate_initsfile(pmparin, refepoch)
         #generate_initsfile(refepoch, pmparins, parfiles, shares, 20)
-        limits = _priors.read_inits(initsfile)
+        limits = read_inits(initsfile)
         print(limits)
-        priors = _priors.create_priors_given_limits_dict(limits)
+        
+        priors = create_prior_dict(shares, limits, list_of_dict_timing, a1dot_constraints)
 
         result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
             sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
+        result.plot_corner()
         result.save_posterior_samples(filename=saved_posteriors)
     
     make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
         list_of_dict_VLBI, list_of_dict_timing)
 
-    if not use_saved_samples:
-        result.plot_corner() ## this may fail when run in the background, therefore put in the last
+def create_prior_dict(shares, limits, list_of_dict_timing, a1dot_constraints=None):
+    if a1dot_constraints == None:
+        priors = PriorDict()
+    else:
+        AKC = kopeikin_effects.add_kopeikin_constraints(list_of_dict_timing) 
+        priors = PriorDict(conversion_function = AKC.add_virtual_parameters_for_a1dot)
+        for p in a1dot_constraints:
+            if len(a1dot_constraints[p]) != 0:
+                min_p, max_p = a1dot_constraints[p]
+                priors[p] = Constraint(minimum=min_p, maximum=max_p, name=p, latex_label=p)
+    
+    for parameter in limits.keys():
+        if limits[parameter][2] == 'Uniform':
+            priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
+                maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+        elif limits[parameter][2] == 'Gaussian':
+            priors[parameter] = bilby.prior.Gaussian(mu=limits[parameter][0],\
+                sigma=limits[parameter][1], name=parameter, latex_label=parameter)
+        elif limits[parameter][2] == 'Sine':
+            priors[parameter] = bilby.prior.Sine(minimum=limits[parameter][0],\
+                maximum=limits[parameter][1], name=parameter, latex_label=parameter)
+    return priors
 
-def divide_sin_incl_constraints_into_limits_and_Gaussian_ones(sin_incl_constraints):
+def turn_a1dot_constraints_to_dict(a1dot_constraints):
+    a1dot_constraints_dict = {}
+    for i in range(len(a1dot_constraints)):
+        parameter_name = 'a1dot_' + str(i)
+        a1dot_constraints_dict[parameter_name] = a1dot_constraints[i]
+    return a1dot_constraints_dict    
+
+def get_parameters_and_virtual_parameters(shares, list_of_dict_timing, a1dot_constraints=None):
+    parameters = get_parameters_from_shares(shares)
+    if a1dot_constraints != None:
+        parameters = add_virtual_parameters_for_a1dot(parameters, list_of_dict_timing)
+    return parameters 
+    
+def __add_virtual_parameters_for_a1dot(parameters, list_of_dict_timing):
     """
-    e.g. [[0,0.5,'limits'],[0.90,0.05,'Gaussian'],[]] --> 
-        Gaussian : [[],[0.90,0.05],[]],
-        limits : [[0,0.5,'limits'],[],[]].
+    Input parameters
+    ----------------
+    parameters : dict
     """
-    SIGC = sin_incl_Gaussian_constraints = []
-    bool_SIGC = False
-    SILC = sin_incl_limits_constraints = []
-    bool_SILC = False
-    for constraint in sin_incl_constraints:
-        if (len(constraint) == 3) and (constraint[2] == 'limits'):
-            SILC.append(constraint[:2])
-            bool_SILC = True
-            SIGC.append([])
-        elif (len(constraint) == 3) and (constraint[2] == 'Gaussian'):
-            SIGC.append(constraint[:2])
-            bool_SIGC = True
-            SILC.append([])
-        else:
-            SIGC.append([])
-            SILC.append([])
-
-    if not bool_SILC:
-        SILC = None
-    if not bool_SIGC:
-        SIGC = None
-    return SIGC, SILC
-
+    converted_parameters = parameters.copy()
+    LoD_timing = list_of_dict_timing
+    for i in range(len(LoD_timing)):
+        if LoD_timing[i] != {}:
+            parameter_name = 'a1dot_' + str(i)
+            coverted_parameters[parameter_name] = kopeikin_effects.calculate_a1dot_pm_for_an_orbital_parameter_dict(LoD_timing[i], parameters, i)
+    return converted_parameters
+    
 
 def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
     t = Table.read(samplefile, format='ascii')
@@ -278,16 +250,12 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad.)\n')
+    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc and incl in rad.)\n')
     for p in parameters:
-        if not 'om_asc' in p:
-            dict_median[p] = howfun.sample2median(t[p])
-            dict_bound[p] = howfun.sample2median_range(t[p], 1)
-            writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
-                dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
-        else: ## for om_asc
-            dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
-            writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
+        dict_median[p] = howfun.sample2median(t[p])
+        dict_bound[p] = howfun.sample2median_range(t[p], 1)
+        writefile.write('%s = %.11f + %.11f - %.11f\n' % (p, dict_median[p],\
+            dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
     
     ## >>> estimate correlation coefficients
     DoR = dict_of_correlation_coefficient = {}
@@ -309,29 +277,36 @@ def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timin
     NoO = number_of_observations = 0
     for i in range(len(LoD_VLBI)):
         res = LoD_VLBI[i]['radecs'] - positions(refepoch, LoD_VLBI[i]['epochs'], LoD_timing[i], i, dict_median)
-        errs_new = adjust_errs_with_efac(LoD_VLBI[i], dict_median, i)
-        chi_sq += np.sum((res/errs_new)**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
+        chi_sq += np.sum((res/LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
         NoO += 2 * len(LoD_VLBI[i]['epochs'])
     DoF = degree_of_freedom = NoO - len(dict_median)
     rchsq = chi_sq / DoF
     return chi_sq, rchsq
 
-def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
-    FP = filter_dictionary_of_parameter_with_index(parameters_dict, parameter_filter_index)
-    Ps = list(FP.keys())
-    Ps.sort()
-    efac = FP[Ps[1]]
-    if efac != -999: 
-        errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * VLBI_dict['errs_sys'])**2
-    else: ## if efac is not to be inferred
-        errs_new_sq = VLBI_dict['errs']**2
-    return errs_new_sq**0.5
+
+def read_inits(initsfile):
+    #initsfile = pmparin.replace('pmpar.in', 'inits')
+    readfile = open(initsfile, 'r')
+    lines = readfile.readlines()
+    readfile.close()
+    dict_limits = {}
+    for line in lines:
+        if not line.startswith('#'):
+            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc']:
+                if keyword in line:
+                    parameter = line.split(':')[0].strip()
+                    limits = line.split(':')[-1].strip().split(',')
+                    limits = [limit.strip() for limit in limits]
+                    limits[0] = float(limits[0])
+                    limits[1] = float(limits[1])
+                    dict_limits[parameter] = limits
+    return dict_limits 
 
 
 
 
 class Gaussianlikelihood(bilby.Likelihood):
-    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, a1dot_constraints=False, sin_incl_constraints=None):
+    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions):
         """
         Addition of multiple Gaussian likelihoods
 
@@ -339,7 +314,6 @@ class Gaussianlikelihood(bilby.Likelihood):
         ----------
         data: array_like
             The data to analyse
-        sin_incl_constraints --> sin_incl_Gaussian_constraints
         """
         self.refepoch = refepoch
         self.LoD_VLBI = list_of_dict_VLBI
@@ -347,24 +321,10 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.positions = positions
         self.shares = shares
         self.number_of_pmparins = len(self.LoD_VLBI)
-        #self.pmparin_preliminaries = pmparin_preliminaries
-        if a1dot_constraints != False:
-            self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = self.parse_a1dot_constraints(a1dot_constraints)
-        else:
-            self.a1dot_constraints = False
 
-        if sin_incl_constraints != None:
-            self.sin_incl_constraints, self.sin_incl_mus, self.sin_incl_sigmas = self.parse_sin_incl_constraints(sin_incl_constraints)
-        else:
-            self.sin_incl_constraints = False
-            
-
-
-        parameters = _priors.get_parameters_from_shares(self.shares)
+        parameters = get_parameters_from_shares(self.shares)
         print(parameters)
         super().__init__(parameters)
-
-        
 
     def log_likelihood(self):
         """
@@ -373,63 +333,47 @@ class Gaussianlikelihood(bilby.Likelihood):
         log_p = 0
         for i in range(self.number_of_pmparins):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
-            errs_new = adjust_errs_with_efac(self.LoD_VLBI[i], self.parameters, i) 
-            log_p += -0.5 * np.sum((res/errs_new)**2) ##if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
-            log_p += -1 * np.sum(np.log(errs_new))
-        
-        if self.a1dot_constraints:
-            modeled_a1dots = kopeikin_effects.calculate_a1dot_pm(self.LoD_timing, self.parameters)
-            #print('ETRA=%.20f' % ETRA)
-            res_a1dots = modeled_a1dots - self.a1dot_mus
-            log_p += -0.5 * np.sum((res_a1dots / self.a1dot_sigmas)**2)
-
-        if self.sin_incl_constraints:
-            log_p += self.log_p_sin_incl_residuals(self.parameters, self.sin_incl_mus, self.sin_incl_sigmas)
+            log_p += -0.5 * np.sum((res/self.LoD_VLBI[i]['errs'])**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
         return log_p
     
 
-    def parse_a1dot_constraints(self, a1dot_constraints):
-        a1dot_mus = np.array([])
-        a1dot_sigmas = np.array([])
-        for a1dot_constraint in a1dot_constraints:
-            if len(a1dot_constraint) == 2:
-                a1dot_mu, a1dot_sigma = a1dot_constraint
-                a1dot_mus = np.append(a1dot_mus, a1dot_mu)
-                a1dot_sigmas = np.append(a1dot_sigmas, a1dot_sigma)
-        if len(a1dot_mus) == 0:
-            a1dot_constraints = False
-        else:
-            a1dot_constraints = True
-        return a1dot_constraints, a1dot_mus, a1dot_sigmas
+def get_parameters_from_shares(shares):
+    parameters = {}
+    roots = parameter_roots = ['dec', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    NoP = number_of_pmparins = len(shares[0])
+    for i in range(7):
+        list_of_strings = group_elements_by_same_values(shares[i])
+        for string in list_of_strings:
+            parameter = roots[i] + string
+            parameters[parameter] = None
+    return parameters
+def group_elements_by_same_values(alist):
+    """
+    Input parameters
+    ----------------
+    alist : list of int
 
-    def parse_sin_incl_constraints(self, sin_incl_constraints):
-        """
-        for sin_incl_Gaussian_constraints
-        """
-        sin_incl_mus = np.array([])
-        sin_incl_sigmas = np.array([])
-        sin_incl_constraints = False
-        for sin_incl_constraint in sin_incl_constraints:
-            if len(sin_incl_constraint) == 2:
-                sin_incl_mu, sin_incl_sigma = sin_incl_constraint
-                sin_incl_mus = np.append(sin_incl_mus, sin_incl_mu)
-                sin_incl_sigmas = np.append(sin_incl_sigmas, sin_incl_sigma)
-                sin_incl_constraints = True  ## if only there is one sin_incl_Gaussian_constraint
-            else: ## when equal to []
-                sin_incl_mus = np.append(sin_incl_mus, None)
-                sin_incl_sigmas = np.append(sin_incl_sigmas, None)
-        return sin_incl_constraints, sin_incl_mus, sin_incl_sigmas
+    Return parameters
+    -----------------
+    
+    """
+    LoS = list_of_string = []
+    alist = np.array(alist)
+    GEI = grouped_element_indice = []
+    N = len(alist)
+    for i in range(len(alist)):
+        if (not i in GEI) and (alist[i]>=0):
+            each_group = np.where(alist==alist[i])[0]
+            each_group = each_group.tolist()
+            GEI += each_group
+            each_group.sort()
+            each_group = [str(element) for element in each_group]
+            str_of_group = '_' + '_'.join(each_group)
+            LoS.append(str_of_group)
+    return LoS
 
-    def log_p_sin_incl_residuals(self, dict_parameters, sin_incl_mus, sin_incl_sigmas):
-        log_p = 0
-        for key in dict_parameters:
-            if 'incl' in key:
-                pmparin_indice, parameter_root = _priors.parameter_name_to_pmparin_indice(key)
-                index = pmparin_indice[0]
-                if sin_incl_mus[index] != None:
-                    sin_incl_residual = np.sin(dict_parameters[key]) - sin_incl_mus[index]
-                    log_p += -0.5 * (sin_incl_residual/sin_incl_sigmas[index])**2
-        return log_p
+
+
 
 
 def dms2rad(ra, dec):
@@ -486,7 +430,6 @@ def readpmparin(pmparin):
             errRAs = np.append(errRAs, errRA)
             errDECs = np.append(errDECs, errDEC)
     t = Table([epochs, RAs, errRAs, DECs, errDECs], names=['epoch', 'RA', 'errRA', 'DEC', 'errDEC'])
-    t.sort('epoch')
     return t
 
 def decyear2mjd(epoch):
