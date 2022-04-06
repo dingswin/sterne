@@ -293,6 +293,7 @@ def read_inits(initsfile):
     lines = readfile.readlines()
     readfile.close()
     dict_limits = {}
+    dict_additional_constraints = {}
     for line in lines:
         if not line.startswith('#'):
             for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc', 'efac']:
@@ -302,8 +303,16 @@ def read_inits(initsfile):
                     limits = [limit.strip() for limit in limits]
                     limits[0] = float(limits[0])
                     limits[1] = float(limits[1])
-                    dict_limits[parameter] = limits
-    return dict_limits 
+                    dict_limits[parameter] = limits[:3]
+                    
+                    try:
+                        limits[3] = float(limits[3]) ## additional constraints
+                        limits[4] = float(limits[4])
+                        dict_additional_constraints[parameter] = limits[3:6]
+                    except IndexError:
+                        pass
+    return dict_limits, dict_additional_constraints
+
 
 def create_priors_given_limits_dict(limits):
     priors = PriorDict()
@@ -321,7 +330,17 @@ def create_priors_given_limits_dict(limits):
 
 class prior_constraints:
     def __init__(self, sin_incl_limits_constraints):
-        pass
+        self.SILC = sin_incl_limits_constraints
     def sin_incl_limits(self, dict_parameters):
-        converted_parameters = dict_parameters.copy()
-        converted_parameters
+        dictPs = dict_parameters.copy()
+        for key in dictPs:
+            use_sin_incl = False
+            if 'incl' in key:
+                parameter = key.replace('incl', 'sin_incl')
+                parameter_indice, parameter_root = parameter_name_to_pmparin_indice(parameter)
+                for i in parameter_indice:
+                    if len(self.SILC[i]) != 0:
+                        use_sin_incl = True
+                if use_sin_incl:
+                    dictPs[parameter] = np.sin(dictPs[key])
+        return dictPs
