@@ -318,3 +318,10 @@ def create_priors_given_limits_dict(limits):
             priors[parameter] = bilby.prior.Sine(minimum=limits[parameter][0],\
                 maximum=limits[parameter][1], name=parameter, latex_label=parameter)
     return priors
+
+class prior_constraints:
+    def __init__(self, sin_incl_limits_constraints):
+        pass
+    def sin_incl_limits(self, dict_parameters):
+        converted_parameters = dict_parameters.copy()
+        converted_parameters
