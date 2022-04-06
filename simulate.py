@@ -163,13 +163,6 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         a1dot_constraints = False
 
     try:
-        sin_incl_Gaussian_constraints, sin_incl_limits_constraints =\
-            divide_sin_incl_constraints_into_limits_and_Gaussian_ones(kwargs['sin_incl_constraints')
-    except KeyError:
-        sin_incl_Gaussian_constraints = None
-        sin_incl_limits_constraints = None
-
-    try:
         pmparin_preliminaries = kwargs['pmparin_preliminaries']
         if len(pmparin_preliminaries) != NoP:
             print('The number of pmpar.in.preliminary files has to\
@@ -220,15 +213,12 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     ##############################################################
     saved_posteriors = outdir + '/posterior_samples.dat'
     if not use_saved_samples:
-        likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
-            shares, positions, a1dot_constraints, sin_incl_Gaussian_constraints)
-        #initsfile = pmparins[0].replace('pmpar.in', 'inits')
-        #if not os.path.exists(initsfile):
-        #    generate_initsfile(pmparin, refepoch)
-        #generate_initsfile(refepoch, pmparins, parfiles, shares, 20)
-        limits = _priors.read_inits(initsfile)
+        limits, DoD_additional_constraints = _priors.read_inits(initsfile)
         print(limits)
-        priors = _priors.create_priors_given_limits_dict(limits)
+        priors = _priors.create_priors_given_limits_dict(limits, DoD_additional_constraints)
+        
+        likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
+            shares, positions, DoD_additional_constraints, a1dot_constraints)
 
         result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
             sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
@@ -239,35 +229,6 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
     if not use_saved_samples:
         result.plot_corner() ## this may fail when run in the background, therefore put in the last
-
-def divide_sin_incl_constraints_into_limits_and_Gaussian_ones(sin_incl_constraints):
-    """
-    e.g. [[0,0.5,'limits'],[0.90,0.05,'Gaussian'],[]] --> 
-        Gaussian : [[],[0.90,0.05],[]],
-        limits : [[0,0.5,'limits'],[],[]].
-    """
-    SIGC = sin_incl_Gaussian_constraints = []
-    bool_SIGC = False
-    SILC = sin_incl_limits_constraints = []
-    bool_SILC = False
-    for constraint in sin_incl_constraints:
-        if (len(constraint) == 3) and (constraint[2] == 'limits'):
-            SILC.append(constraint[:2])
-            bool_SILC = True
-            SIGC.append([])
-        elif (len(constraint) == 3) and (constraint[2] == 'Gaussian'):
-            SIGC.append(constraint[:2])
-            bool_SIGC = True
-            SILC.append([])
-        else:
-            SIGC.append([])
-            SILC.append([])
-
-    if not bool_SILC:
-        SILC = None
-    if not bool_SIGC:
-        SIGC = None
-    return SIGC, SILC
 
 
 def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
@@ -331,7 +292,7 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
 
 
 class Gaussianlikelihood(bilby.Likelihood):
-    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, a1dot_constraints=False, sin_incl_constraints=None):
+    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, DoD_additional_constraints, a1dot_constraints=False):
         """
         Addition of multiple Gaussian likelihoods
 
@@ -348,17 +309,18 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.shares = shares
         self.number_of_pmparins = len(self.LoD_VLBI)
         #self.pmparin_preliminaries = pmparin_preliminaries
+        self.dict_sin_incl_Gaussian_constraints = DoD_additional_constraints['sin_incl_Gaussian_constraints'] 
+        
         if a1dot_constraints != False:
             self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = self.parse_a1dot_constraints(a1dot_constraints)
         else:
             self.a1dot_constraints = False
-
+        '''
         if sin_incl_constraints != None:
             self.sin_incl_constraints, self.sin_incl_mus, self.sin_incl_sigmas = self.parse_sin_incl_constraints(sin_incl_constraints)
         else:
             self.sin_incl_constraints = False
-            
-
+        ''' 
 
         parameters = _priors.get_parameters_from_shares(self.shares)
         print(parameters)
@@ -383,8 +345,12 @@ class Gaussianlikelihood(bilby.Likelihood):
             res_a1dots = modeled_a1dots - self.a1dot_mus
             log_p += -0.5 * np.sum((res_a1dots / self.a1dot_sigmas)**2)
 
-        if self.sin_incl_constraints:
-            log_p += self.log_p_sin_incl_residuals(self.parameters, self.sin_incl_mus, self.sin_incl_sigmas)
+        if len(self.dict_sin_incl_Gaussian_constraints) != 0:
+            for parameter in self.dict_sin_incl_Gaussian_constraints:
+                #log_p += self.log_p_sin_incl_residuals(self.parameters, self.sin_incl_mus, self.sin_incl_sigmas)
+                sin_incl_mu, sin_incl_sigma = self.dict_sin_incl_Gaussian_constraints[parameter]
+                res = sin_incl_mu - np.sin(self.parameters[parameter])
+                log_p += -0.5 * (res / sin_incl_sigma)**2
         return log_p
     
 
@@ -402,7 +368,7 @@ class Gaussianlikelihood(bilby.Likelihood):
             a1dot_constraints = True
         return a1dot_constraints, a1dot_mus, a1dot_sigmas
 
-    def parse_sin_incl_constraints(self, sin_incl_constraints):
+    def __parse_sin_incl_constraints(self, sin_incl_constraints):
         """
         for sin_incl_Gaussian_constraints
         """
@@ -420,7 +386,7 @@ class Gaussianlikelihood(bilby.Likelihood):
                 sin_incl_sigmas = np.append(sin_incl_sigmas, None)
         return sin_incl_constraints, sin_incl_mus, sin_incl_sigmas
 
-    def log_p_sin_incl_residuals(self, dict_parameters, sin_incl_mus, sin_incl_sigmas):
+    def __log_p_sin_incl_residuals(self, dict_parameters, sin_incl_mus, sin_incl_sigmas):
         log_p = 0
         for key in dict_parameters:
             if 'incl' in key:

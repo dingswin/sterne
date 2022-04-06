@@ -288,12 +288,21 @@ def group_elements_by_same_values(alist):
 
 
 def read_inits(initsfile):
+    """
+    the additional constraints should be given in the same parameter line after the likelihood distribution requests.
+
+    Output
+    ------
+    DoD_additional_constraints : dict of 2 dict
+    """
     #initsfile = pmparin.replace('pmpar.in', 'inits')
     readfile = open(initsfile, 'r')
     lines = readfile.readlines()
     readfile.close()
     dict_limits = {}
-    dict_additional_constraints = {}
+    DoD_additional_constraints = dict_of_dict_additional_constraints = {}
+    DoD_additional_constraints['sin_incl_Gaussian_constraints'] = {}
+    DoD_additional_constraints['sin_incl_limits_constraints'] = {}
     for line in lines:
         if not line.startswith('#'):
             for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc', 'efac']:
@@ -308,14 +317,27 @@ def read_inits(initsfile):
                     try:
                         limits[3] = float(limits[3]) ## additional constraints
                         limits[4] = float(limits[4])
-                        dict_additional_constraints[parameter] = limits[3:6]
+                        if (limits[5] == 'Sine_Gaussian') and ('incl' in parameter):
+                            DoD_additional_constraints['sin_incl_Gaussian_constraints'][parameter] = limits[3:5]
+                        elif (limits[5] == 'Sine_limits') and ('incl' in parameter):
+                            DoD_additional_constraints['sin_incl_limits_constraints'][parameter] = limits[3:5]
                     except IndexError:
                         pass
-    return dict_limits, dict_additional_constraints
+    return dict_limits, DoD_additional_constraints
 
 
-def create_priors_given_limits_dict(limits):
-    priors = PriorDict()
+def create_priors_given_limits_dict(limits, DoD_additional_constraints):
+    SILC = sin_incl_limits_constraints = DoD_additional_constraints['sin_incl_limits_constraints']
+    if len(SILC) == 0:
+        priors = PriorDict()
+    else:
+        APC = additional_prior_constraints(DoD_additional_constraints)
+        priors = PriorDict(conversion_function=APC.sin_incl_limits)
+        for parameter in SILC:
+            parameter_virtual = parameter.replace('incl', 'sin_incl')
+            sin_incl_min, sin_incl_max = SILC[parameter][:2]
+            priors[parameter_virtual] = Constraint(minimum=sin_incl_min, maximum=sin_incl_max)
+
     for parameter in limits.keys():
         if limits[parameter][2] == 'Uniform':
             priors[parameter] = bilby.core.prior.Uniform(minimum=limits[parameter][0],\
@@ -328,19 +350,13 @@ def create_priors_given_limits_dict(limits):
                 maximum=limits[parameter][1], name=parameter, latex_label=parameter)
     return priors
 
-class prior_constraints:
-    def __init__(self, sin_incl_limits_constraints):
-        self.SILC = sin_incl_limits_constraints
+class additional_prior_constraints:
+    def __init__(self, DoD_additional_constraints):
+        self.SILC = sin_incl_limits_constraints = DoD_additional_constraints['sin_incl_limits_constraints']
     def sin_incl_limits(self, dict_parameters):
         dictPs = dict_parameters.copy()
-        for key in dictPs:
-            use_sin_incl = False
-            if 'incl' in key:
-                parameter = key.replace('incl', 'sin_incl')
-                parameter_indice, parameter_root = parameter_name_to_pmparin_indice(parameter)
-                for i in parameter_indice:
-                    if len(self.SILC[i]) != 0:
-                        use_sin_incl = True
-                if use_sin_incl:
-                    dictPs[parameter] = np.sin(dictPs[key])
+        if len(self.SILC) != 0:
+            for parameter in self.SILC:
+                parameter_virtual = parameter.replace('incl', 'sin_incl')
+                dictPs[parameter_virtual] = np.sin(dictPs[parameter])
         return dictPs
