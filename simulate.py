@@ -227,6 +227,13 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
 
 def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
+    outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile)
+    writefile = open(outputfile, 'w')
+    chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
+    writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
+    writefile.close()
+
+def make_a_brief_summary_of_Bayesian_inference(samplefile):
     t = Table.read(samplefile, format='ascii')
     parameters = t.colnames[:-2]
     dict_median = {}
@@ -236,14 +243,19 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     writefile.write('#Medians of the simulated samples:\n')
     writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad.)\n')
     for p in parameters:
-        if not 'om_asc' in p:
-            dict_median[p] = howfun.sample2median(t[p])
-            dict_bound[p] = howfun.sample2median_range(t[p], 1)
-            writefile.write('%s = %.18f + %.18f - %.18f\n' % (p, dict_median[p],\
-                dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
-        else: ## for om_asc
+        if 'om_asc' in p: ## for om_asc
             dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
             writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
+        else:
+            dict_median[p] = howfun.sample2median(t[p])
+            dict_bound[p] = howfun.sample2median_range(t[p], 1)
+            if 'ra' in p:
+                writefile.write('%s = %s + %f - %f (ms)\n' % (p, howfun.deg2dms(dict_median[p]*180/np.pi/15), (dict_bound[p][1]-dict_median[p])*180/np.pi/15*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi/15*3600*1000))
+            elif 'dec' in p:
+                writefile.write('%s = %s + %f - %f (mas)\n' % (p, howfun.deg2dms(dict_median[p]*180/np.pi), (dict_bound[p][1]-dict_median[p])*180/np.pi*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi*3600*1000))
+            else:
+                writefile.write('%s = %f + %f - %f\n' % (p, dict_median[p],\
+                    dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
     
     ## >>> estimate correlation coefficients
     DoR = dict_of_correlation_coefficient = {}
@@ -255,12 +267,8 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
             writefile.write('%s = %f\n' % (key, DoR[key]))
     #print(DoR)
     ## <<<
-
-    chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
-    writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.close()
-
-def make_a_brief_summary_of_Bayesian_inference(samplefile):
+    return outputfile
     
 
 def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median):
