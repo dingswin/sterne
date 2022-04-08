@@ -259,6 +259,10 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.close()
+
+def make_a_brief_summary_of_Bayesian_inference(samplefile):
+    
+
 def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median):
     LoD_VLBI, LoD_timing = list_of_dict_VLBI, list_of_dict_timing
     chi_sq = 0

@@ -21,6 +21,10 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     Common parameters might have more than 1 list of priors.
     In such cases, the larger outer bound will be adopted.
 
+    Notice
+    ------
+    Additional inclination constraints should be added into the initsfile in the same incl line after the likelihood distribution declaration.
+
     Input parameters
     ----------------
     refepoch : float
