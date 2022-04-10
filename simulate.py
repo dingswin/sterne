@@ -227,8 +227,8 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
 
 def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
-    outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile)
-    writefile = open(outputfile, 'w')
+    dict_median, outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile)
+    writefile = open(outputfile, 'a')
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.close()
@@ -241,7 +241,7 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile):
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     writefile = open(outputfile, 'w')
     writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; ra and dec in rad; mu_a and mu_d in mas/yr; om_asc in deg and incl in rad.)\n')
+    writefile.write('#(Units: px in mas; mu_a and mu_d in mas/yr; incl in rad.)\n')
     for p in parameters:
         if 'om_asc' in p: ## for om_asc
             dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
@@ -268,7 +268,7 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile):
     #print(DoR)
     ## <<<
     writefile.close()
-    return outputfile
+    return dict_median, outputfile
     
 
 def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median):
