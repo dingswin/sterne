@@ -205,6 +205,7 @@ def create_list_of_dict_timing(parfiles):
             dict_of_timing_parameters = {}
         list_of_dict_timing.append(dict_of_timing_parameters)
     print(list_of_dict_timing)
+    return list_of_dict_timing
 
 def create_list_of_dict_VLBI(pmparins, pmparin_preliminaries=None):
     NoP = len(pmparins)
