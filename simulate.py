@@ -11,7 +11,7 @@ from astropy import constants
 import os, sys
 import howfun
 from astropy.table import Table
-from model import reflex_motion, kopeikin_effects
+from model import kopeikin_effects
 from model.positions import positions
 from model.positions import filter_dictionary_of_parameter_with_index
 from sterne import priors as _priors
@@ -169,38 +169,9 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     ##############################################################
     #################  get two list_of_dict ######################
     ##############################################################
-    list_of_dict_timing = []
-    for parfile in parfiles:
-        if parfile != '':
-            dict_of_timing_parameters = reflex_motion.read_parfile(parfile)
-        else:
-            dict_of_timing_parameters = {}
-        list_of_dict_timing.append(dict_of_timing_parameters)
-    print(list_of_dict_timing)
+    list_of_dict_timing = create_list_of_dict_timing(parfiles)
 
-    list_of_dict_VLBI = []
-    for pmparin in pmparins:
-        t = readpmparin(pmparin)
-        radecs = np.concatenate([t['RA'], t['DEC']])
-        errs = np.concatenate([t['errRA'], t['errDEC']])
-        epochs = np.array(t['epoch'])
-        dictionary = {}
-        dictionary['epochs'] = epochs
-        dictionary['radecs'] = radecs
-        dictionary['errs'] = errs
-        list_of_dict_VLBI.append(dictionary)
-    if pmparin_preliminaries != None:
-        for i in range(NoP):
-            t = readpmparin(pmparin_preliminaries[i])
-            if not (np.array(t['epoch']) == list_of_dict_VLBI[i]['epochs']).all():
-                print('Epochs of the pmpar.in.preliminary files should match those of the pmpar.in files; exiting for now.')
-                sys.exit(1)
-            errs_random = np.concatenate([t['errRA'], t['errDEC']])
-            list_of_dict_VLBI[i]['errs_random'] = errs_random
-            errs = list_of_dict_VLBI[i]['errs']
-            errs_sys = (errs**2 - errs_random**2)**0.5
-            list_of_dict_VLBI[i]['errs_sys'] = errs_sys
-    print(list_of_dict_VLBI)
+    list_of_dict_VLBI = create_list_of_dict_VLBI(pmparins, pmparin_preliminaries)
 
     
     ##############################################################
@@ -217,14 +188,56 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
         result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
             sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
-        result.save_posterior_samples(filename=saved_posteriors)
     
+    result = bilby.result.read_in_result(filename='outdir/label_result.json') 
+    result.save_posterior_samples(filename=saved_posteriors)
     make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
         list_of_dict_VLBI, list_of_dict_timing)
+    result.plot_corner() ## this may fail when run in the background, therefore put in the last
 
-    if not use_saved_samples:
-        result.plot_corner() ## this may fail when run in the background, therefore put in the last
+def create_list_of_dict_timing(parfiles):
+    from model import reflex_motion
+    list_of_dict_timing = []
+    for parfile in parfiles:
+        if parfile != '':
+            dict_of_timing_parameters = reflex_motion.read_parfile(parfile)
+        else:
+            dict_of_timing_parameters = {}
+        list_of_dict_timing.append(dict_of_timing_parameters)
+    print(list_of_dict_timing)
 
+def create_list_of_dict_VLBI(pmparins, pmparin_preliminaries=None):
+    NoP = len(pmparins)
+    
+    list_of_dict_VLBI = []
+    for pmparin in pmparins:
+        t = readpmparin(pmparin)
+        radecs = np.concatenate([t['RA'], t['DEC']])
+        errs = np.concatenate([t['errRA'], t['errDEC']])
+        epochs = np.array(t['epoch'])
+        dictionary = {}
+        dictionary['epochs'] = epochs
+        dictionary['radecs'] = radecs
+        dictionary['errs'] = errs
+        list_of_dict_VLBI.append(dictionary)
+    if pmparin_preliminaries != None:
+        if len(pmparin_preliminaries) != NoP:
+            print('The number of pmpar.in.preliminary files has to\
+                match that of pmpar.in files. Exiting for now.')
+            sys.exit(1)
+        for i in range(NoP):
+            t = readpmparin(pmparin_preliminaries[i])
+            if not (np.array(t['epoch']) == list_of_dict_VLBI[i]['epochs']).all():
+                print('Epochs of the pmpar.in.preliminary files should match those of the pmpar.in files; exiting for now.')
+                sys.exit(1)
+            errs_random = np.concatenate([t['errRA'], t['errDEC']])
+            list_of_dict_VLBI[i]['errs_random'] = errs_random
+            errs = list_of_dict_VLBI[i]['errs']
+            errs_sys = (errs**2 - errs_random**2)**0.5
+            list_of_dict_VLBI[i]['errs_sys'] = errs_sys
+    print(list_of_dict_VLBI)
+    return list_of_dict_VLBI
+    
 
 def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
     dict_median, outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile)

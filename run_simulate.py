@@ -42,7 +42,7 @@ exec("kwargs['shares'] = %s" % options.shares)
 exec("kwargs['a1dot_constraints'] = %s" % options.a1dot_constraints)
 
 
-print('\ndeleting old files in the outdir directory now.\n')
-os.system('rm -rf outdir/*')
+#print('\ndeleting old files in the outdir directory now.\n')
+#os.system('rm -rf outdir/*')
 
 simulate.simulate(refepoch, initsfiles, *pmparins, **kwargs)
