@@ -131,7 +131,11 @@ def model_parallax_and_reflex_motion_offset(epoch, dict_parameters, dict_of_timi
     px = None
     om_asc = None
     incl = None
-    for parameter in dict_parameters:
+    if type(dict_parameters) == dict:
+        parameters = dict_parameters.keys()
+    else: ## Table
+        parameters = dict_parameters.colnames
+    for parameter in parameters: ## for Table format
         if 'px' in parameter:
             px = dict_parameters[parameter]
         if 'om_asc' in parameter:
