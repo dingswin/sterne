@@ -10,7 +10,7 @@ from model import reflex_motion
 import novas.compat.solsys as solsys
 from novas.compat.eph_manager import ephem_open
 
-def positions(refepoch, epochs, list_of_dict_timing, parameter_filter_index, dict_parameters):
+def positions(refepoch, epochs, dict_timing, parameter_filter_index, dict_parameters):
     """
     Input parameters
     ----------------
@@ -24,7 +24,7 @@ def positions(refepoch, epochs, list_of_dict_timing, parameter_filter_index, dic
     dec_models = np.array([])
     for i in range(len(epochs)):
         ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[0]],\
-            FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], FP[Ps[7]], list_of_dict_timing)
+            FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], FP[Ps[7]], dict_timing)
         ra_models = np.append(ra_models, ra_model)
         dec_models = np.append(dec_models, dec_model)
     return np.concatenate([ra_models, dec_models])
@@ -119,6 +119,76 @@ def position(refepoch, epoch, dec_rad, incl, mu_a, mu_d, om_asc, px, ra_rad,\
     ra_rad += offset[0] * (u.mas).to(u.rad)
     dec_rad += offset[1] * (u.mas).to(u.rad)
     return  ra_rad, dec_rad #rad
+
+def model_parallax_and_reflex_motion_offset(epoch, dict_parameters, dict_of_timing_parameters):
+    """
+    Notice
+    ------
+        This function is meant for plot.sky_position_evolution.parallax_signature. 
+        There is at most 1 'px', 1 'incl' and 1 'om_asc' parameter.
+        All 'ra's and 'dec's should be very close on the sky.
+    """
+    px = None
+    om_asc = None
+    incl = None
+    for parameter in dict_parameters:
+        if 'px' in parameter:
+            px = dict_parameters[parameter]
+        if 'om_asc' in parameter:
+            om_asc = dict_parameters[parameter]
+        if 'incl' in parameter:
+            incl = dict_parameters[parameter]
+        if 'ra' in parameter:
+            ra_rad = dict_parameters[parameter] ## use the last ra_rad
+        if 'dec' in parameter:
+            dec_rad = dict_parameters[parameter] ## use the last dec_rad
+    offset = [0, 0]
+    if px != None:
+        offset += parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px) #in mas
+    if (om_asc != None) and (incl != None):
+        offset += reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)
+    return offset
+def model_parallax_and_reflex_motion_offsets(epochs, dict_parameters, dict_of_timing_parameters):
+    ra_offsets, dec_offsets = [], []
+    for epoch in epochs:
+        offset = model_parallax_and_reflex_motion_offset(epoch, dict_parameters, dict_of_timing_parameters)
+        ra_offsets.append(offset[0])
+        dec_offsets.append(offset[1])
+    return np.concatenate((ra_offsets, dec_offsets))
+
+def observed_positions_subtracted_by_proper_motion(refepoch, dict_VLBI, filter_index, dict_parameters):
+    
+    filtered_dict_of_parameters = filter_dictionary_of_parameter_with_index(dict_parameters, filter_index)
+    for parameter in filtered_dict_of_parameters:
+        if 'mu_a' in parameter:
+            mu_a = filtered_dict_of_parameters[parameter]
+        if 'mu_d' in parameter:
+            mu_d = filtered_dict_of_parameters[parameter]
+        if 'ra' in parameter:
+            ra_ref = filtered_dict_of_parameters[parameter] ## rad
+        if 'dec' in parameter:
+            dec_ref = filtered_dict_of_parameters[parameter] ## rad
+    
+    epochs = dict_VLBI['epochs']
+    NoE = len(epochs)
+    ra_offsets, dec_offsets = [], []
+    for i in range(NoE):
+        ra = dict_VLBI['radecs'][i]
+        dec = dict_VLBI['radecs'][i+NoE]
+        ra_offset = (ra - ra_ref) * (u.rad).to(u.mas) * np.cos(dec_ref) ## in mas
+        dec_offset = (dec - dec_ref) * (u.rad).to(u.mas) ## in mas
+        ra_offset -= mu_a * (epochs[i] - refepoch) * (u.d).to(u.yr)
+        dec_offset -= mu_d * (epochs[i] - refepoch) * (u.d).to(u.yr)
+        ra_offsets.append(ra_offset)
+        dec_offsets.append(dec_offset)
+
+    errs = dict_VLBI['errs']
+    errs *= (u.rad).to(u.mas)
+    ra_errs = errs[:NoE] * np.cos(dec_ref)
+    dec_errs = errs[NoE:]
+    return np.concatenate((ra_offsets, dec_offsets)), np.concatenate((ra_errs, dec_errs))
+    
+
 def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px):
     """
     Originality note
