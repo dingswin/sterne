@@ -91,11 +91,11 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
             posterior_indice = np.random.randint(0, len(t), N_random_draw) 
             for index in posterior_indice:
                 sim_radec_offsets = positions.simulate_positions_subtracted_by_proper_motion(refepoch, Ts, t[index], j, dict_median, dict_timing)
-                ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=6./N_random_draw)
-                ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=6./N_random_draw)
+                ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=15./N_random_draw)
+                ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=15./N_random_draw)
     ## <<<
     
-    model_linewidth = 0.4
+    model_linewidth = 0.7
     ax1.plot(Ts, model_radec_offsets[:len(Ts)], color='magenta', lw=model_linewidth)
     ax1.set_xlabel('time (MJD)')
     ax1.set_ylabel('RA. offset (mas)')
@@ -112,14 +112,33 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     #######################################
     ### plot the observed positions now
     #######################################
+
     for i in range(NoP):
+        trs = transparency = errorbar_transparency(i, -0.5)
         radec_offsets, errs = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median)
-        ax1.scatter(epochs, radec_offsets[:NoE], marker='.', alpha=1./(1+i), color=colors[i])
-        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=1./(i+1), label=legend_labels[i], color=colors[i])
-        ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=1./(i+1), color=colors[i])
-        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=1./(i+1), color=colors[i])
+        ax1.scatter(epochs, radec_offsets[:NoE], marker='.', alpha=trs, color=colors[i])
+        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
+        ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
+        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
 
     ax1.legend(loc='lower left')
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_time_nopm_Bayesian.pdf')
     plt.clf()
+
+def errorbar_transparency(layer, power_index):
+    """
+    Input parameter
+    ---------------
+    layer : int
+        layer NO.
+    power_index : float
+        a negative number.
+    
+    Output
+    ------
+    transp : float
+        value for the 'alpha' kwarg.
+    """
+    transp = (1 + layer)**power_index
+    return transp
