@@ -35,7 +35,7 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
             Number of random draw from the posterior sample.
             It is activated when N_random_draw > 5
         3. legend_labels : list of str
-        4. measurement_colors : list of str
+        4. colors : list of str
     """
     #########################
     ## set up variables
@@ -56,6 +56,10 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     except KeyError:
         if NoP > 1:
             legend_labels = [''] * NoP
+    try:
+        colors = kwargs['colors']
+    except KeyError:
+        colors = ['mediumblue','darkorange','r', 'y', 'lime']
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
@@ -83,20 +87,21 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     
     ## >>> if show Bayesian parameter errors
     if N_random_draw > 5:
-        posterior_indice = np.random.randint(0, len(t), N_random_draw) 
-        for index in posterior_indice:
-            sim_radec_offsets = positions.model_parallax_and_reflex_motion_offsets(Ts, t[index], dict_timing)
-            ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color='k', alpha=3./N_random_draw)
-            ax2.plot(Ts, sim_radec_offsets[len(Ts):], color='k', alpha=3./N_random_draw)
+        for j in range(NoP):
+            posterior_indice = np.random.randint(0, len(t), N_random_draw) 
+            for index in posterior_indice:
+                sim_radec_offsets = positions.simulate_positions_subtracted_by_proper_motion(refepoch, Ts, t[index], j, dict_median, dict_timing)
+                ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=6./N_random_draw)
+                ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=6./N_random_draw)
     ## <<<
     
     model_linewidth = 0.4
-    ax1.plot(Ts, model_radec_offsets[:len(Ts)], color='m', lw=model_linewidth)
+    ax1.plot(Ts, model_radec_offsets[:len(Ts)], color='magenta', lw=model_linewidth)
     ax1.set_xlabel('time (MJD)')
     ax1.set_ylabel('RA. offset (mas)')
     ax1.set_title('RA-time (proper motion removed)')
 
-    ax2.plot(Ts, model_radec_offsets[len(Ts):], color='m', lw=model_linewidth)
+    ax2.plot(Ts, model_radec_offsets[len(Ts):], color='magenta', lw=model_linewidth)
     ax2.set_xlabel('time (MJD)')
     ax2.set_ylabel('Dec offset (mas)')
     ax2.set_title('Dec-time (proper motion removed)')
@@ -109,10 +114,10 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     #######################################
     for i in range(NoP):
         radec_offsets, errs = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median)
-        ax1.scatter(epochs, radec_offsets[:NoE], marker='.', alpha=1./(1+i))
-        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=1./(i+1), label=legend_labels[i])
-        ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=1./(i+1))
-        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=1./(i+1))
+        ax1.scatter(epochs, radec_offsets[:NoE], marker='.', alpha=1./(1+i), color=colors[i])
+        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=1./(i+1), label=legend_labels[i], color=colors[i])
+        ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=1./(i+1), color=colors[i])
+        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=1./(i+1), color=colors[i])
 
     ax1.legend(loc='lower left')
     gs1.tight_layout(fig1)

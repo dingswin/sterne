@@ -12,8 +12,7 @@ import os, sys
 import howfun
 from astropy.table import Table
 from sterne.model import kopeikin_effects
-from sterne.model.positions import positions
-from sterne.model.positions import filter_dictionary_of_parameter_with_index
+from model.positions import positions, filter_dictionary_of_parameter_with_index
 from sterne import priors as _priors
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """

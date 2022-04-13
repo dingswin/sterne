@@ -161,7 +161,23 @@ def model_parallax_and_reflex_motion_offsets(epochs, dict_parameters, dict_of_ti
     return np.concatenate((ra_offsets, dec_offsets))
 
 def observed_positions_subtracted_by_proper_motion(refepoch, dict_VLBI, filter_index, dict_parameters):
-    
+    epochs = dict_VLBI['epochs']
+    NoE = len(epochs)
+    ra_offsets, dec_offsets = [], []
+    for i in range(NoE):
+        ra = dict_VLBI['radecs'][i]
+        dec = dict_VLBI['radecs'][i+NoE]
+        ra_offset, dec_offset = observed_position_subtracted_by_proper_motion(refepoch, epochs[i], ra, dec, filter_index, dict_parameters)
+        ra_offsets.append(ra_offset)
+        dec_offsets.append(dec_offset)
+
+    errs = dict_VLBI['errs']
+    errs *= (u.rad).to(u.mas)
+    ra_errs = errs[:NoE] * np.cos(dec)
+    dec_errs = errs[NoE:]
+    return np.concatenate((ra_offsets, dec_offsets)), np.concatenate((ra_errs, dec_errs))
+
+def observed_position_subtracted_by_proper_motion(refepoch, epoch, ra, dec, filter_index, dict_parameters):
     filtered_dict_of_parameters = filter_dictionary_of_parameter_with_index(dict_parameters, filter_index)
     for parameter in filtered_dict_of_parameters:
         if 'mu_a' in parameter:
@@ -172,26 +188,25 @@ def observed_positions_subtracted_by_proper_motion(refepoch, dict_VLBI, filter_i
             ra_ref = filtered_dict_of_parameters[parameter] ## rad
         if 'dec' in parameter:
             dec_ref = filtered_dict_of_parameters[parameter] ## rad
-    
-    epochs = dict_VLBI['epochs']
+    ra_offset = (ra - ra_ref) * (u.rad).to(u.mas) * np.cos(dec_ref) ## in mas
+    dec_offset = (dec - dec_ref) * (u.rad).to(u.mas) ## in mas
+    ra_offset -= mu_a * (epoch - refepoch) * (u.d).to(u.yr)
+    dec_offset -= mu_d * (epoch - refepoch) * (u.d).to(u.yr)
+    return ra_offset, dec_offset 
+
+def simulate_positions_subtracted_by_proper_motion(refepoch, epochs, sim_table_row, filter_index, dict_parameters, dict_timing):
     NoE = len(epochs)
+    dict_1sim = {}
+    for parameter in sim_table_row.colnames[:-2]: ## excluding 'log_likelihood' and 'log_prior'
+        dict_1sim[parameter] = sim_table_row[parameter]
+
+    sim_radecs = positions(refepoch, epochs, dict_timing, filter_index, dict_1sim)
     ra_offsets, dec_offsets = [], []
     for i in range(NoE):
-        ra = dict_VLBI['radecs'][i]
-        dec = dict_VLBI['radecs'][i+NoE]
-        ra_offset = (ra - ra_ref) * (u.rad).to(u.mas) * np.cos(dec_ref) ## in mas
-        dec_offset = (dec - dec_ref) * (u.rad).to(u.mas) ## in mas
-        ra_offset -= mu_a * (epochs[i] - refepoch) * (u.d).to(u.yr)
-        dec_offset -= mu_d * (epochs[i] - refepoch) * (u.d).to(u.yr)
+        ra_offset, dec_offset = observed_position_subtracted_by_proper_motion(refepoch, epochs[i], sim_radecs[i], sim_radecs[NoE+i], filter_index, dict_parameters)
         ra_offsets.append(ra_offset)
         dec_offsets.append(dec_offset)
-
-    errs = dict_VLBI['errs']
-    errs *= (u.rad).to(u.mas)
-    ra_errs = errs[:NoE] * np.cos(dec_ref)
-    dec_errs = errs[NoE:]
-    return np.concatenate((ra_offsets, dec_offsets)), np.concatenate((ra_errs, dec_errs))
-    
+    return np.concatenate((ra_offsets, dec_offsets))
 
 def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px):
     """
