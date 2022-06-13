@@ -16,12 +16,18 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     Purpose
     -------
         to plot parallax (and reflex motion) signature revealed/shared by one or more pmparin(s).
+
     Notice
     ------
         1. only one 'px' parameter (and 'incl', 'om_asc') allowed in the parameter dictionary.
         2. pmparins and parfiles should follow the order of parameters provided by the posterior_samples.
         3. pmparins should share the same epochs.
         4. Only one parfile is needed. But to be safe try to make len(parfiles)==len(pmparins).
+
+    Example
+    -------
+    sky_position_evolution.parallax_signature(['J1939+2134.to.IBC01647.pmpar.in.dual.phscal','J1939+2134.to.IBC01648.pmpar.in.dual.phscal'], ['',''], 57850, legend_labels=['J194104','J194106'], N_random_draw=1000)
+    should reproduce the figure in Ding et al. 2022 (but with the plot branch).
 
     Input parameters
     ----------------
@@ -59,7 +65,7 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     try:
         colors = kwargs['colors']
     except KeyError:
-        colors = ['mediumblue','darkorange','r', 'y', 'lime']
+        colors = ['mediumblue','tomato','r', 'y', 'lime']
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
@@ -99,12 +105,12 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     ax1.plot(Ts, model_radec_offsets[:len(Ts)], color='magenta', lw=model_linewidth)
     ax1.set_xlabel('time (MJD)')
     ax1.set_ylabel('RA. offset (mas)')
-    ax1.set_title('RA-time (proper motion removed)')
+    #ax1.set_title('RA-time (proper motion removed)')
 
     ax2.plot(Ts, model_radec_offsets[len(Ts):], color='magenta', lw=model_linewidth)
     ax2.set_xlabel('time (MJD)')
     ax2.set_ylabel('Dec offset (mas)')
-    ax2.set_title('Dec-time (proper motion removed)')
+    #ax2.set_title('Dec-time (proper motion removed)')
 
 
 

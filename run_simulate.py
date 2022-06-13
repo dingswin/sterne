@@ -7,7 +7,7 @@ import argparse
 from sterne import simulate
 
 code_description = "A command-line wrapper for sterne.simulate.simulate(). NOTE to self (others can ignore): Run under pmparesults directories!"
-example = "run_simulate.py 57849 J0030+0451.inits J0030+0451.pmpar.in '' -r J0030+0451.pmpar.in.preliminary -s [[0],[0],[-1],[0],[0],[-1],[0],[0]] -i 5000 -n 30"
+example = "run_simulate.py 57849 J0030+0451.inits J0030+0451.pmpar.in '' -r J0030+0451.pmpar.in.preliminary -s [[0],[0],[-1],[0],[0],[-1],[0],[0]] -i 5000 -n 30;                                       run_simulate.py 57850 J1939+2134.inits J1939+2134.to.IBC01647.pmpar.in '' J1939+2134.to.IBC01648.pmpar.in '' -r J1939+2134.to.IBC01647.pmpar.in.preliminary J1939+2134.to.IBC01648.pmpar.in.preliminary -s [[0,1],[0,0],[-1,-1],[0,0],[0,0],[-1,-1],[0,0],[0,1]] -i 5000 -n 30"
 
 parser = argparse.ArgumentParser(description=code_description, prog='run_simulate.py', usage=example)
 parser.add_argument("epoch", metavar="epoch", type=int,
@@ -40,6 +40,7 @@ kwargs['nwalkers'] = options.nwalkers
 kwargs['pmparin_preliminaries'] = options.prelimpmpars
 exec("kwargs['shares'] = %s" % options.shares)
 exec("kwargs['a1dot_constraints'] = %s" % options.a1dot_constraints)
+print(kwargs)
 
 
 #print('\ndeleting old files in the outdir directory now.\n')
