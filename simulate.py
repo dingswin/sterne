@@ -9,7 +9,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-import howfun
+import others
 from astropy.table import Table
 from sterne.model import kopeikin_effects
 from model.positions import positions, filter_dictionary_of_parameter_with_index
@@ -257,15 +257,15 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile):
     writefile.write('#(Units: px in mas; mu_a and mu_d in mas/yr; incl in rad.)\n')
     for p in parameters:
         if 'om_asc' in p: ## for om_asc
-            dict_median[p], upper_side_error, lower_side_error = howfun.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
+            dict_median[p], upper_side_error, lower_side_error = others.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
             writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
         else:
-            dict_median[p] = howfun.sample2median(t[p])
-            dict_bound[p] = howfun.sample2median_range(t[p], 1)
+            dict_median[p] = others.sample2median(t[p])
+            dict_bound[p] = others.sample2median_range(t[p], 1)
             if 'ra' in p:
-                writefile.write('%s = %s + %f - %f (ms)\n' % (p, howfun.deg2dms(dict_median[p]*180/np.pi/15), (dict_bound[p][1]-dict_median[p])*180/np.pi/15*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi/15*3600*1000))
+                writefile.write('%s = %s + %f - %f (ms)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi/15), (dict_bound[p][1]-dict_median[p])*180/np.pi/15*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi/15*3600*1000))
             elif 'dec' in p:
-                writefile.write('%s = %s + %f - %f (mas)\n' % (p, howfun.deg2dms(dict_median[p]*180/np.pi), (dict_bound[p][1]-dict_median[p])*180/np.pi*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi*3600*1000))
+                writefile.write('%s = %s + %f - %f (mas)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi), (dict_bound[p][1]-dict_median[p])*180/np.pi*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi*3600*1000))
             else:
                 writefile.write('%s = %f + %f - %f\n' % (p, dict_median[p],\
                     dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
@@ -433,9 +433,9 @@ def dms2rad(ra, dec):
     dec : float
         Declination, in rad.
     """
-    ra = howfun.dms2deg(ra)
+    ra = others.dms2deg(ra)
     ra *= 15 * np.pi/180 #in rad
-    dec = howfun.dms2deg(dec)
+    dec = others.dms2deg(dec)
     dec *= np.pi/180 #in rad
     return ra, dec
     
@@ -456,9 +456,9 @@ def readpmparin(pmparin):
         if line.count(':')==4 and (not line.strip().startswith('#')): 
             epoch, RA, errRA, DEC, errDEC = line.strip().split(' ')
             epoch = decyear2mjd(float(epoch.strip())) #in MJD
-            DEC = howfun.dms2deg(DEC.strip()) #in deg
+            DEC = others.dms2deg(DEC.strip()) #in deg
             DEC *= np.pi/180. #in rad
-            RA = howfun.dms2deg(RA.strip()) #in hr
+            RA = others.dms2deg(RA.strip()) #in hr
             RA *= 15*np.pi/180. #in rad
             errRA = float(errRA.strip()) #in s
             errRA *= 15 * np.pi/180./3600. #in rad

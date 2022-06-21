@@ -7,7 +7,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-import howfun
+import others
 import simulate
 import bilby
 from bilby.core.prior.base import Prior
@@ -182,10 +182,10 @@ def readpmparout(pmparout):
                 exec("%s='%s'" % (estimate.strip(), value), globals())
         if 'RA' in line: #here, due to a bug in exec(), it is not combined with the other three parameters
             RA = line.split('=')[-1].split('+')[0].strip()
-            RA = howfun.dms2deg(RA)
+            RA = others.dms2deg(RA)
         if 'Dec  ' in line:
             Dec = line.split('=')[-1].split('+')[0].strip()
-            Dec = howfun.dms2deg(Dec)
+            Dec = others.dms2deg(Dec)
 
     for line in lines:
         if 'RA' in line:

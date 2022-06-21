@@ -9,3 +9,6 @@ model/__pycache__/__init__.cpython-37.pyc
 model/__pycache__/kopeikin_effects.cpython-37.pyc
 model/__pycache__/positions.cpython-37.pyc
 model/__pycache__/reflex_motion.cpython-37.pyc
+cornerplot.cpython-37.pyc
+__init__.cpython-37.pyc
+sky_position_evolution.cpython-37.pyc

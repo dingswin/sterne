@@ -6,7 +6,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-import howfun
+import others
 from psrqpy import QueryATNF
 import priors
 
@@ -87,14 +87,14 @@ def read_parfile(parfile):
     except KeyError:
         pass
     try:
-        dict_parameter['decj'] = u.deg * howfun.dms2deg(dict_parameter['decj'])
+        dict_parameter['decj'] = u.deg * others.dms2deg(dict_parameter['decj'])
     except KeyError:
         print("'decj' is essential but is missing from %s. try to get it with psrqpy..." % parfile)
         psrname = parfile.split('.')[0]
         print('Guess the pulsar name to be %s' % psrname)
         query1 = QueryATNF(psrs=[psrname], params=['DECJ'])
         decj = str(query1['DECJ'][0])
-        decj = u.deg * howfun.dms2deg(decj)
+        decj = u.deg * others.dms2deg(decj)
         print('decj=')
         print(decj)
         dict_parameter['decj'] = decj
