@@ -146,12 +146,14 @@ def model_parallax_and_reflex_motion_offset(epoch, dict_parameters, dict_of_timi
             ra_rad = dict_parameters[parameter] ## use the last ra_rad
         if 'dec' in parameter:
             dec_rad = dict_parameters[parameter] ## use the last dec_rad
-    offset = [0, 0]
+    ra_offset, dec_offset = 0, 0
     if not no_px:
-        offset += parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px) #in mas
+        ra_offset += np.cos(dec_rad) * parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px)[0] #in mas; since it is on the sky plane, cos(dec_rad) is multiplied back
+        dec_offset = parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px)[1] # in mas
     if (om_asc != None) and (incl != None):
-        offset += reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)
-    return offset
+        ra_offset += np.cos(dec_rad) * reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)[0]
+        dec_offset += reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)[1]
+    return ra_offset, dec_offset
 def model_parallax_and_reflex_motion_offsets(epochs, dict_parameters, dict_of_timing_parameters, **kwargs):
     """
     Inputs
@@ -223,9 +225,10 @@ def observed_position_subtracted_by_proper_motion(refepoch, epoch, ra, dec, filt
     dec_offset = (dec - dec_ref) * (u.rad).to(u.mas) ## in mas
     ra_offset -= mu_a * (epoch - refepoch) * (u.d).to(u.yr)
     dec_offset -= mu_d * (epoch - refepoch) * (u.d).to(u.yr)
-    offset = np.array([ra_offset, dec_offset])
-    offset -= parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px) #in mas
-    return offset[0], offset[1] 
+    #offset = np.array([ra_offset, dec_offset])
+    ra_offset -= np.cos(dec_ref) * parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px)[0] #in mas; back to sky plane
+    dec_offset -= parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, px)[1]
+    return ra_offset, dec_offset
 
 def simulate_positions_subtracted_by_proper_motion(refepoch, epochs, sim_table_row, filter_index, dict_parameters, dict_timing, **kwargs):
     """
