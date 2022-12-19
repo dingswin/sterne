@@ -187,8 +187,8 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
 
         result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
             sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
-    
-    result = bilby.result.read_in_result(filename='outdir/label_result.json') 
+    jsonfile = outdir + '/label_result.json' 
+    result = bilby.result.read_in_result(filename=jsonfile) 
     result.save_posterior_samples(filename=saved_posteriors)
     make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
         list_of_dict_VLBI, list_of_dict_timing)

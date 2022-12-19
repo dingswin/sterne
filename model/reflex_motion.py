@@ -258,7 +258,7 @@ class reflex_motion_detectability:
         try:
             a1 = kwargs['a1']
         except KeyError:
-            print('a1 is not provided; fectching from PSRCAT')
+            print('a1 is not provided; fetching from PSRCAT')
             psrname = pmparin.split('.')[0]
             print('Guess the pulsar name to be %s' % psrname)
             query1 = QueryATNF(psrs=[psrname], params=['A1'])

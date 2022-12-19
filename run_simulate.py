@@ -28,6 +28,8 @@ parser.add_argument("-n", "--nwalkers", dest="nwalkers", type=int, default=30,
 parser.add_argument("-a", "--a1dot", dest="a1dot_constraints", type=str, 
                     default=False, metavar="a1dot_constraints", 
                     help="a1dot constraints, a list of list of 2 floats. e.g. [[mu, sigma], []], (both in lt-sec/sec), where mu and sigma refers to the Gaussian distribution for a1dot. The length of a1dot_constraint needs to match len(pmparins), unless None.")
+parser.add_argument("-o", "--outdir", dest="outdir", type=str, default='outdir',
+                    metavar="outdir", help="the output directory")
 
 options         = parser.parse_args()
 refepoch        = options.epoch
@@ -38,6 +40,7 @@ kwargs = {}
 kwargs['iterations'] = options.iterations
 kwargs['nwalkers'] = options.nwalkers
 kwargs['pmparin_preliminaries'] = options.prelimpmpars
+kwargs['outdir'] = options.outdir
 exec("kwargs['shares'] = %s" % options.shares)
 exec("kwargs['a1dot_constraints'] = %s" % options.a1dot_constraints)
 print(kwargs)
