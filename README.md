@@ -13,9 +13,11 @@ Functions:
 2) for sources sharing some identical astrometric parameters (e.g. parallax, proper motion), parameters can be inferred together (new feature).
 
 Requisites to use Sterne: 
-1) input positions (normally measured with VLBI) in the traditional "pmpar.in" format (for pmpar).
-2) initsfile (.inits) containing priors for each parameter; a priminary initsfile can be produced with priors.generate_initsfile().
-3) parfile (.par) containing timing parameters (provided by PSRCAT); latest numbers beyond PSRCAT should be updated if possible.
+1) planetary ephemerides used by tempo2 are needed, which can be downloaded
+along with tempo2 at https://bitbucket.org/psrsoft/tempo2/downloads/.
+2) input positions (normally measured with VLBI) in the traditional "pmpar.in" format (for pmpar).
+3) initsfile (.inits) containing priors for each parameter; a priminary initsfile can be produced with priors.generate_initsfile().
+4) parfile (.par) containing timing parameters (provided by PSRCAT); latest numbers beyond PSRCAT should be updated if possible.
 See sterne.simulate.py for more details.
 
 Outputs:
