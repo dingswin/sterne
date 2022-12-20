@@ -30,11 +30,14 @@ parser.add_argument("-a", "--a1dot", dest="a1dot_constraints", type=str,
                     help="a1dot constraints, a list of list of 2 floats. e.g. [[mu, sigma], []], (both in lt-sec/sec), where mu and sigma refers to the Gaussian distribution for a1dot. The length of a1dot_constraint needs to match len(pmparins), unless None.")
 parser.add_argument("-o", "--outdir", dest="outdir", type=str, default='outdir',
                     metavar="outdir", help="the output directory")
+parser.add_argument("-c", "--clearoutdir", dest="clearoutdir", default='False', 
+                    action="store_true", help="clear outdir")
 
 options         = parser.parse_args()
 refepoch        = options.epoch
 initsfiles      = options.priors
 pmparins        = options.pmparins
+clearoutdir     = options.clearoutdir
 
 kwargs = {}
 kwargs['iterations'] = options.iterations
@@ -45,8 +48,8 @@ exec("kwargs['shares'] = %s" % options.shares)
 exec("kwargs['a1dot_constraints'] = %s" % options.a1dot_constraints)
 print(kwargs)
 
-
-#print('\ndeleting old files in the outdir directory now.\n')
-#os.system('rm -rf outdir/*')
+if clearoutdir:
+    print('\ndeleting old files inside %s now.\n' % kwargs['outdir'])
+    os.system('rm -rf %s/*' % kwargs['outdir'])
 
 simulate.simulate(refepoch, initsfiles, *pmparins, **kwargs)
