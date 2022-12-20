@@ -9,13 +9,17 @@ import os, sys
 import others
 from psrqpy import QueryATNF
 import priors
+from shutil import which
 
 def generate_parfile(pulsar):
     """
     The parfile generation only works for pulsar listed in PSRCAT.
     """
-    #os.system("psrcat %s -e > %s" % (pulsar, pulsar+'.par'))
     parfile = pulsar + '.par'
+    if which('psrcat')==None:
+        print('PSRCAT has not been installed. Please install it from https://www.atnf.csiro.au/people/pulsar/psrcat/download.html.')
+    # alias psrcat="psrcat -db_file $PSRCAT_FILE"
+    # where $PSRCAT_FILE points to the psrcat.db
     results = os.system("psrcat %s -e > %s" % (pulsar, parfile))
     readfile = open(parfile, 'r')
     contents = readfile.read()
@@ -251,6 +255,9 @@ class reflex_motion_detectability:
             a1 : float
                 projected semi-major axis (in lt-sec).
         """
+        if not os.path.exists(pmparin):
+            print('%s does not exist; aborting' % pmparin)
+            sys.exit(1)
         pmparout = pmparin.replace('pmpar.in','pmpar.out')
         os.system("pmpar %s > %s" % (pmparin, pmparout))
         [ra, error_ra, dec, error_dec, mu_a, error_mu_a, mu_d, error_mu_d, px, err_px, rcs, junk] = priors.readpmparout(pmparout)
