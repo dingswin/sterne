@@ -244,6 +244,7 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     writefile = open(outputfile, 'a')
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
+    writefile.write('The reference epoch is MJD %d \n' % refepoch)
     writefile.close()
 
 def make_a_brief_summary_of_Bayesian_inference(samplefile):

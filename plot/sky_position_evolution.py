@@ -42,6 +42,8 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
             It is activated when N_random_draw > 5
         3. legend_labels : list of str
         4. colors : list of str
+        5. legend_loc : str (default : 'lower left')
+            where on the left panel to place the legend. There are 6 options: 'lower/upper left/center/right'.
     """
     #########################
     ## set up variables
@@ -66,6 +68,10 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
         colors = kwargs['colors']
     except KeyError:
         colors = ['mediumblue','tomato','r', 'y', 'lime']
+    try:
+        legend_loc = kwargs['legend_loc']
+    except KeyError:
+        legend_loc = 'lower_left'
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
@@ -127,7 +133,7 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
         ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
         ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
 
-    ax1.legend(loc='lower left')
+    ax1.legend(loc=legend_loc)
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_time_nopm_Bayesian.pdf')
     plt.clf()
@@ -176,6 +182,8 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
             It is activated when N_random_draw > 5
         3. legend_labels : list of str
         4. colors : list of str
+        5. legend_loc : str (default : 'lower left')
+            where on the left panel to place the legend. There are 6 options: 'lower/upper left/center/right'.
     """
     #########################
     ## set up variables
@@ -200,6 +208,10 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
         colors = kwargs['colors']
     except KeyError:
         colors = ['mediumblue','tomato','r', 'y', 'lime']
+    try:
+        legend_loc = kwargs['legend_loc']
+    except KeyError:
+        legend_loc = 'lower_left'
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
@@ -261,7 +273,7 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
         ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
         ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
 
-    ax1.legend(loc='lower left')
+    ax1.legend(loc=legend_loc)
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_time_nopm_nopx_Bayesian.pdf')
     plt.clf()
