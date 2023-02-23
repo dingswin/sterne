@@ -44,3 +44,7 @@ sky_position_evolution.cpython-310.pyc
 sky_position_evolution.cpython-37.pyc
 model/__pycache__/
 plot/__pycache__/
+pyproject.toml
+sterne-1.0.1-py3-none-any.whl
+sterne-1.0.1.tar.gz
+dist/
