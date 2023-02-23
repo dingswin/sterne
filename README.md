@@ -10,11 +10,11 @@ pip install sterne
 ```
 
 ### Code Description:  
-This code generalises on [astrometryfit](https://github.com/adamdeller/astrometryfit) by Adam Deller and Scott Ransom. The generalisation enables one to infer astrometric parameters for sources sharing some identical astrometric parameters (but different on other astrometric parameters). The scope of the code is mainly VLBI astrometry of nearby pulsars, preferably the astrometry having multiple in-beam calibrators. However, there is no doubt the code can be applied to astrometry of other targets carried out beyond VLBI.
+This code is used to run Bayesian inference based on position series acquired with VLBI phase-referencing observations. Such inference has been historically realized with [astrometryfit](https://github.com/adamdeller/astrometryfit) by Adam Deller and Scott Ransom. STERNE is commited to furthering the efforts of astrometryfit and fulfilling new features. As a major new feature, STERNE enables one to infer astrometric parameters for sources sharing some identical astrometric parameters (but different on other astrometric parameters), thus improving the astrometric precision. The scope of the code is mainly VLBI astrometry of nearby pulsars, preferably the astrometry having multiple in-beam calibrators, though the code can also potentially be applied to astrometry of other targets carried out beyond VLBI.
 
 ### Functions:  
 1) infer up to 8 parameters -- parallax, proper motion, reference position, longitude of ascending node, inclination angle (already realized by astrometryfit) and EFAC. For the two (binary) orbital-motion parameters, the Tempo2 convention is adopted to assist comparison with pulsar timing results.
-2) for sources sharing some identical astrometric parameters (e.g. parallax, proper motion), parameters can be inferred together (new feature).
+2) for sources sharing some identical astrometric parameters (e.g. parallax, proper motion), parameters can be inferred together.
 
 ### Requisites to use Sterne:  
 1) planetary ephemerides used by tempo2 are needed, which were downloaded
