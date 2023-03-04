@@ -7,8 +7,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-import others
-import simulate
+from sterne import others, simulate
 import bilby
 from bilby.core.prior.base import Prior
 from bilby.core.prior import PriorDict

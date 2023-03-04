@@ -9,10 +9,10 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-import others
+from sterne import others
 from astropy.table import Table
-from sterne.model import kopeikin_effects
-from model.positions import positions, filter_dictionary_of_parameter_with_index
+from sterne.model import kopeikin_effects, reflex_motion
+from sterne.model.positions import positions, filter_dictionary_of_parameter_with_index
 from sterne import priors as _priors
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """
@@ -195,7 +195,6 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     result.plot_corner() ## this may fail when run in the background, therefore put in the last
 
 def create_list_of_dict_timing(parfiles):
-    from model import reflex_motion
     list_of_dict_timing = []
     for parfile in parfiles:
         if parfile != '':

@@ -6,9 +6,8 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-import others
+from sterne import others, priors
 from psrqpy import QueryATNF
-import priors
 from shutil import which
 
 def generate_parfile(pulsar):

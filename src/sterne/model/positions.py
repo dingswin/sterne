@@ -6,7 +6,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-from model import reflex_motion
+from sterne.model import reflex_motion
 import novas.compat.solsys as solsys
 from novas.compat.eph_manager import ephem_open
 
