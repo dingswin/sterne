@@ -71,7 +71,7 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     try:
         legend_loc = kwargs['legend_loc']
     except KeyError:
-        legend_loc = 'lower_left'
+        legend_loc = 'lower left'
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
@@ -211,7 +211,7 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     try:
         legend_loc = kwargs['legend_loc']
     except KeyError:
-        legend_loc = 'lower_left'
+        legend_loc = 'lower left'
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
