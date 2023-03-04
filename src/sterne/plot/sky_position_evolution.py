@@ -76,7 +76,8 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
     dict_timing = LoD_timing[0] ## see the Notice
-
+    
+    print('Reading %s...' % posterior_samples)
     t = Table.read(posterior_samples, format='ascii')
     parameters = t.colnames[:-2]
     dict_median, outputfile = simulate.make_a_brief_summary_of_Bayesian_inference(posterior_samples)
