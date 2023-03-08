@@ -79,6 +79,7 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     
     print('Reading %s...' % posterior_samples)
     t = Table.read(posterior_samples, format='ascii')
+    print('Done reading %s...' % posterior_samples)
     parameters = t.colnames[:-2]
     dict_median, outputfile = simulate.make_a_brief_summary_of_Bayesian_inference(posterior_samples)
     
