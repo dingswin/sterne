@@ -279,6 +279,8 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
         ax2.errorbar(orbital_phases_obs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
 
     ax1.legend(loc=legend_loc)
+    plot_title = r'$P_b=%3.2f\,\mathrm{day}$; MJD %d is at orbital phase 0' % (Pb, refepoch)
+    plt.suptitle(plot_title)
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_orbital_phase__nopm_nopx_Bayesian.pdf')
     plt.clf()
