@@ -177,8 +177,8 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
         reference epoch (in MJD) for the 'ra' and 'dec' reference positions provided by the posterior_samples. 
 
     kwargs :
-        1. time_resolution : int (default : Pb/20)
-            Unit: day. The smaller the higher the time resolution.
+        1. phase_resolution : int (default : 0.01)
+            A fraction of the orbital phase. The smaller the higher the time resolution.
         2. N_random_draw : int (default : -999)
             Number of random draw from the posterior sample.
             It is activated when N_random_draw > 5
@@ -190,6 +190,10 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     #########################
     ## set up variables
     #########################
+    try:
+        phase_resolution = kwargs['phase_resolution']
+    except KeyError:
+        phase_resolution = 0.01
     try:
         N_random_draw = kwargs['N_random_draw']
     except KeyError:
@@ -214,11 +218,7 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
     dict_timing = LoD_timing[0] ## see the Notice
-    try:
-        time_resolution = kwargs['time_resolution']
-    except KeyError:
-        time_resolution = dict_timing['pb'].value / 20.
-
+    Pb = dict_timing['pb'].value ## orbital period in day
 
     t = Table.read(posterior_samples, format='ascii')
     parameters = t.colnames[:-2]
@@ -227,8 +227,9 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     epochs = LoD_VLBI[0]['epochs']
     NoE = len(epochs)
     min_epoch, max_epoch = min(epochs), max(epochs)
-    #Ts = np.arange(min_epoch, max_epoch, (max_epoch-min_epoch)/time_resolution)
-    Ts = np.arange(min_epoch, max_epoch, time_resolution)
+    #Ts = np.arange(min_epoch, max_epoch, time_resolution)
+    orbital_phases = np.arange(0, 1, phase_resolution)
+    Ts = orbital_phases * Pb + refepoch
     #model_radecs = positions(refepoch, Ts, LoD_timing, 0, dict_median)
     model_radec_offsets = positions.model_parallax_and_reflex_motion_offsets(Ts, dict_median, dict_timing, no_px=True)
     
@@ -247,18 +248,18 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
             posterior_indice = np.random.randint(0, len(t), N_random_draw) 
             for index in posterior_indice:
                 sim_radec_offsets = positions.simulate_positions_subtracted_by_proper_motion(refepoch, Ts, t[index], j, dict_median, dict_timing, no_px=True)
-                ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=15./N_random_draw)
-                ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=15./N_random_draw)
+                ax1.plot(orbital_phases, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=15./N_random_draw)
+                ax2.plot(orbital_phases, sim_radec_offsets[len(Ts):], color=colors[j], alpha=15./N_random_draw)
     ## <<<
     
     model_linewidth = 0.7
-    ax1.plot(Ts, model_radec_offsets[:len(Ts)], color='magenta', lw=model_linewidth)
-    ax1.set_xlabel('time (MJD)')
+    ax1.plot(orbital_phases, model_radec_offsets[:len(Ts)], color='magenta', lw=model_linewidth)
+    ax1.set_xlabel('orbital phase')
     ax1.set_ylabel('RA. offset (mas)')
     #ax1.set_title('RA-time (proper motion removed)')
 
-    ax2.plot(Ts, model_radec_offsets[len(Ts):], color='magenta', lw=model_linewidth)
-    ax2.set_xlabel('time (MJD)')
+    ax2.plot(orbital_phases, model_radec_offsets[len(Ts):], color='magenta', lw=model_linewidth)
+    ax2.set_xlabel('orbital phase')
     ax2.set_ylabel('Dec offset (mas)')
     #ax2.set_title('Dec-time (proper motion removed)')
 
@@ -268,16 +269,16 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     #######################################
     ### plot the observed positions now
     #######################################
-
+    orbital_phases_obs = ((epochs - refepoch) / Pb) % 1
     for i in range(NoP):
         trs = transparency = errorbar_transparency(i, -0.5)
         radec_offsets, errs = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median, no_px=True)
-        ax1.scatter(epochs, radec_offsets[:NoE], marker='.', alpha=trs, color=colors[i])
-        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
-        ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
-        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
+        ax1.scatter(orbital_phases_obs, radec_offsets[:NoE], marker='.', alpha=trs, color=colors[i])
+        ax1.errorbar(orbital_phases_obs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
+        ax2.scatter(orbital_phases_obs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
+        ax2.errorbar(orbital_phases_obs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
 
     ax1.legend(loc=legend_loc)
     gs1.tight_layout(fig1)
-    plt.savefig('ra_dec_time_nopm_nopx_Bayesian.pdf')
+    plt.savefig('ra_dec_orbital_phase__nopm_nopx_Bayesian.pdf')
     plt.clf()
