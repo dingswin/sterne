@@ -177,8 +177,8 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
         reference epoch (in MJD) for the 'ra' and 'dec' reference positions provided by the posterior_samples. 
 
     kwargs :
-        1. time_resolution : int (default : 100)
-            The larger the higher the time resolution.
+        1. time_resolution : int (default : Pb/20)
+            Unit: day. The smaller the higher the time resolution.
         2. N_random_draw : int (default : -999)
             Number of random draw from the posterior sample.
             It is activated when N_random_draw > 5
@@ -190,10 +190,6 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     #########################
     ## set up variables
     #########################
-    try:
-        time_resolution = kwargs['time_resolution']
-    except KeyError:
-        time_resolution = 100
     try:
         N_random_draw = kwargs['N_random_draw']
     except KeyError:
@@ -218,6 +214,11 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
     dict_timing = LoD_timing[0] ## see the Notice
+    try:
+        time_resolution = kwargs['time_resolution']
+    except KeyError:
+        time_resolution = dict_timing['pb'].value / 20.
+
 
     t = Table.read(posterior_samples, format='ascii')
     parameters = t.colnames[:-2]
@@ -226,7 +227,8 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     epochs = LoD_VLBI[0]['epochs']
     NoE = len(epochs)
     min_epoch, max_epoch = min(epochs), max(epochs)
-    Ts = np.arange(min_epoch, max_epoch, (max_epoch-min_epoch)/time_resolution)
+    #Ts = np.arange(min_epoch, max_epoch, (max_epoch-min_epoch)/time_resolution)
+    Ts = np.arange(min_epoch, max_epoch, time_resolution)
     #model_radecs = positions(refepoch, Ts, LoD_timing, 0, dict_median)
     model_radec_offsets = positions.model_parallax_and_reflex_motion_offsets(Ts, dict_median, dict_timing, no_px=True)
     
