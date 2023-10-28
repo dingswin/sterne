@@ -5,14 +5,11 @@
 
 import math,os,sys
 import numpy as np
+from astropy.time import Time
 
-class Convert_time:
-    def __init__(self):
-        pass
-    def decyear2mjd(self, decyear):
-        from astropy.time import Time
-        t = Time(decyear, format='decimalyear')
-        return t.mjd
+def decyear2mjd(decyear):
+    t = Time(decyear, format='decimalyear')
+    return t.mjd
 
 def simulate_split_normal_distribution(mu, err_up, err_low, size):
     pass

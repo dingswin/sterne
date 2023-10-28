@@ -50,6 +50,8 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     if type(pmparins) != list:
         print('pmparins has to be a list. Exiting for now.')
         sys.exit(1)
+    if refepoch < 3000: ## in decyear
+        refepoch = others.decyear2mjd(refepoch) ## in MJD 
     HMS = HowManySigma
     roots = ['dec', 'mu_a', 'mu_d', 'px', 'ra']
     dict_limits = create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma)
