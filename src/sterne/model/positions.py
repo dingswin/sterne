@@ -6,7 +6,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-from sterne.model import reflex_motion
+from sterne.model import reflex_motion as _reflex_motion
 import novas.compat.solsys as solsys
 from novas.compat.eph_manager import ephem_open
 
@@ -115,7 +115,7 @@ def position(refepoch, epoch, dec_rad, incl, mu_a, mu_d, om_asc, px, ra_rad,\
     if px != -999:
         offset += parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px) #in mas
         if (incl != -999) and (om_asc != -999) and (dict_of_timing_parameters != {}):
-            offset += reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)
+            offset += _reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)
     ra_rad += offset[0] * (u.mas).to(u.rad)
     dec_rad += offset[1] * (u.mas).to(u.rad)
     return  ra_rad, dec_rad #rad
@@ -151,8 +151,8 @@ def model_parallax_and_reflex_motion_offset(epoch, dict_parameters, dict_of_timi
         ra_offset += np.cos(dec_rad) * parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px)[0] #in mas; since it is on the sky plane, cos(dec_rad) is multiplied back
         dec_offset = parallax_related_position_offset_from_the_barycentric_frame(epoch, ra_rad, dec_rad, px)[1] # in mas
     if (om_asc != None) and (incl != None):
-        ra_offset += np.cos(dec_rad) * reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)[0]
-        dec_offset += reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)[1]
+        ra_offset += np.cos(dec_rad) * _reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)[0]
+        dec_offset += _reflex_motion.reflex_motion(epoch, dict_of_timing_parameters, incl, om_asc, px)[1]
     return ra_offset, dec_offset
 def model_parallax_and_reflex_motion_offsets(epochs, dict_parameters, dict_of_timing_parameters, **kwargs):
     """

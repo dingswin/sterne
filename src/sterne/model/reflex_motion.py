@@ -6,7 +6,7 @@ import numpy as np
 import astropy.units as u
 from astropy import constants
 import os, sys
-from sterne import others, priors
+from sterne import others
 from psrqpy import QueryATNF
 from shutil import which
 
@@ -254,6 +254,7 @@ class reflex_motion_detectability:
             a1 : float
                 projected semi-major axis (in lt-sec).
         """
+        from sterne import priors
         if not os.path.exists(pmparin):
             print('%s does not exist; aborting' % pmparin)
             sys.exit(1)
