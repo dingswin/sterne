@@ -26,8 +26,10 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
 
     Example
     -------
-    sky_position_evolution.parallax_signature(['J1939+2134.to.IBC01647.pmpar.in.dual.phscal','J1939+2134.to.IBC01648.pmpar.in.dual.phscal'], ['',''], 57850, legend_labels=['J194104','J194106'], N_random_draw=1000)
-    should reproduce the figure in Ding et al. 2022 (but with the plot branch).
+    1) sky_position_evolution.parallax_signature(['J1939+2134.to.IBC01647.pmpar.in.dual.phscal','J1939+2134.to.IBC01648.pmpar.in.dual.phscal'], ['',''], 57850, legend_labels=['J194104','J194106'], N_random_draw=1000)
+    should reproduce the figure in Ding et al. 2023 (but with the plot branch).
+    2) parallax_signature(['J0509+3801.to.IBC18600068.pmpar.in','J0509+3801.to.IBC18600047.sec.dual.phscal.pmpar.in'], ['',''], 57381, legend_labels=['J051132','virtual calibrator'], N_random_draw=1000, legend_loc='upper right')
+    should reproduce the figure in Ding et al. 2024 (DNS paper)
 
     Input parameters
     ----------------
@@ -44,6 +46,8 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
         4. colors : list of str
         5. legend_loc : str (default : 'lower left')
             where on the left panel to place the legend. There are 6 options: 'lower/upper left/center/right'.
+        6. dim_random_draw_by : float (default : 1)
+            reduce the transparency of random draw by a factor of dim_random_draw_by.
     """
     #########################
     ## set up variables
@@ -72,6 +76,10 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
         legend_loc = kwargs['legend_loc']
     except KeyError:
         legend_loc = 'lower left'
+    try:
+        dim_random_draw_by = kwargs['dim_random_draw_by']
+    except KeyError:
+        dim_random_draw_by = 2.0
     
     LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
@@ -105,11 +113,14 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
             posterior_indice = np.random.randint(0, len(t), N_random_draw) 
             for index in posterior_indice:
                 sim_radec_offsets = positions.simulate_positions_subtracted_by_proper_motion(refepoch, Ts, t[index], j, dict_median, dict_timing)
-                ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=15./N_random_draw)
-                ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=15./N_random_draw)
+                #ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=15./N_random_draw)
+                ax1.plot(Ts, sim_radec_offsets[:len(Ts)], color=colors[j], alpha=15./N_random_draw/dim_random_draw_by)
+                #ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=15./N_random_draw)
+                ax2.plot(Ts, sim_radec_offsets[len(Ts):], color=colors[j], alpha=15./N_random_draw/dim_random_draw_by)
     ## <<<
     
-    model_linewidth = 0.7
+    #model_linewidth = 0.7
+    model_linewidth = 0.8
     ax1.plot(Ts, model_radec_offsets[:len(Ts)], color='magenta', lw=model_linewidth)
     ax1.set_xlabel('time (MJD)')
     ax1.set_ylabel('RA. offset (mas)')
@@ -283,4 +294,96 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     plt.suptitle(plot_title)
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_orbital_phase__nopm_nopx_Bayesian.pdf')
+    plt.clf()
+
+def projected_orbit(pmparins, parfiles, refepoch, posterior_samples='outdir/posterior_samples.dat', **kwargs):
+    """
+    Purpose
+    -------
+        to plot projected orbit revealed/shared by one or more pmparin(s).
+
+    Notice
+    ------
+        1. only one 'px' parameter (and 'incl', 'om_asc') allowed in the parameter dictionary.
+        2. pmparins and parfiles should follow the order of parameters provided by the posterior_samples.
+        3. pmparins should share the same epochs.
+        4. Only one parfile is needed. But to be safe try to make len(parfiles)==len(pmparins).
+
+
+    Input parameters
+    ----------------
+    refepoch : float
+        reference epoch (in MJD) for the 'ra' and 'dec' reference positions provided by the posterior_samples. 
+
+    kwargs :
+        1. phase_resolution : int (default : 0.01)
+            A fraction of the orbital phase. The smaller the higher the time resolution.
+        2. N_random_draw : int (default : -999)
+            Number of random draw from the posterior sample.
+            It is activated when N_random_draw > 5
+        3. legend_labels : list of str
+        4. colors : list of str
+        5. legend_loc : str (default : 'lower left')
+            where on the left panel to place the legend. There are 6 options: 'lower/upper left/center/right'.
+    """
+    #########################
+    ## set up variables
+    #########################
+    try:
+        phase_resolution = kwargs['phase_resolution']
+    except KeyError:
+        phase_resolution = 0.01
+    try:
+        N_random_draw = kwargs['N_random_draw']
+    except KeyError:
+        N_random_draw = -999
+    
+    NoP = len(pmparins)
+    
+    try:
+        legend_labels = kwargs['legend_labels']
+    except KeyError:
+        if NoP >= 1:
+            legend_labels = [''] * NoP
+    try:
+        colors = kwargs['colors']
+    except KeyError:
+        colors = ['mediumblue','tomato','r', 'y', 'lime']
+    try:
+        legend_loc = kwargs['legend_loc']
+    except KeyError:
+        legend_loc = 'lower left'
+    
+    LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
+    LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
+    dict_timing = LoD_timing[0] ## see the Notice
+    Pb = dict_timing['pb'].value ## orbital period in day
+
+    t = Table.read(posterior_samples, format='ascii')
+    parameters = t.colnames[:-2]
+    dict_median, outputfile = simulate.make_a_brief_summary_of_Bayesian_inference(posterior_samples)
+    
+    epochs = LoD_VLBI[0]['epochs']
+    NoE = len(epochs)
+    min_epoch, max_epoch = min(epochs), max(epochs)
+    #Ts = np.arange(min_epoch, max_epoch, time_resolution)
+    orbital_phases = np.arange(0, 1, phase_resolution)
+    Ts = orbital_phases * Pb + refepoch
+    #model_radecs = positions(refepoch, Ts, LoD_timing, 0, dict_median)
+    model_radec_offsets = positions.model_parallax_and_reflex_motion_offsets(Ts, dict_median, dict_timing, no_px=True)
+
+    #################################
+    ### plot the model first
+    #################################
+    a = plt.scatter(1000*model_radec_offsets[:len(Ts)], 1000*model_radec_offsets[len(Ts):], c=Ts-refepoch, cmap='viridis')
+    cbar = plt.colorbar(a)
+    cbar.set_label('time in an orbit (day)', rotation=90)
+    #plt.gca().set_aspect('equal')
+    ax1 = plt.gca()
+    ax1.invert_xaxis()
+    plt.xlabel(r'RA offset ($\mu$as)')
+    plt.ylabel(r'Dec offset ($\mu$as)')
+    plt.title('projected orbit')
+    plt.tight_layout()
+    plt.savefig('projected_orbit.pdf')
     plt.clf()

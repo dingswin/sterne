@@ -16,13 +16,13 @@ def cornerplot(saved_posteriors='outdir/posterior_samples.dat',\
     Examples
     --------
     1. 8P full corner plot:    
-        cornerplot.cornerplot(cornerplot_variables_dict={'ra_0':r"$\Delta \alpha$\,(mas)", 'px_0':r"$\varpi$\,(mas)", 'dec_0':r"$\Delta \delta$\,(mas)", 'mu_a_0':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", 'mu_d_0':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$", 'efac_0':r"$\eta_\mathrm{EFAC}$", 'incl_0':r"$i$\,(deg)", 'om_asc_0':r"$\Omega_\mathrm{asc}$\,(deg)"})
+        cornerplot.cornerplot(cornerplot_variables_dict={'ra_0':r"$\Delta \alpha$\,(mas)", 'px_0':r"$\varpi$\,(mas)", 'dec_0':r"$\Delta \delta$\,(mas)", 'mu_d_0':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", 'mu_a_0':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$", 'efac_0':r"$\eta_\mathrm{EFAC}$", 'incl_0':r"$i$\,(deg)", 'om_asc_0':r"$\Omega_\mathrm{asc}$\,(deg)"})
     
     2. Only the two orbital parameters:
-        cornerplot.cornerplot(cornerplot_variables_dict={'ra_0':r"$\Delta \alpha$\,(mas)", 'px_0':r"$\varpi$\,(mas)", 'dec_0':r"$\Delta \delta$\,(mas)", 'mu_a_0: ':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", 'mu_d_0':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$", 'efac_0':r"$\eta_\mathrm{EFAC}$", 'incl_0':r"$i$\,(deg)", 'om_asc_0':r"$\Omega_\mathrm{asc}$\,(deg)"}, exclude_parameters=['ra_0','dec_0','efac_0','px_0','mu_a_0','mu_d_0'], bins=30)
+        cornerplot.cornerplot(cornerplot_variables_dict={'ra_0':r"$\Delta \alpha$\,(mas)", 'px_0':r"$\varpi$\,(mas)", 'dec_0':r"$\Delta \delta$\,(mas)", 'mu_d_0: ':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", 'mu_a_0':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$", 'efac_0':r"$\eta_\mathrm{EFAC}$", 'incl_0':r"$i$\,(deg)", 'om_asc_0':r"$\Omega_\mathrm{asc}$\,(deg)"}, exclude_parameters=['ra_0','dec_0','efac_0','px_0','mu_a_0','mu_d_0'], bins=30)
 
     3. Two-calibrator inference, no orbital parameter
-        cornerplot.cornerplot(cornerplot_variables_dict={'ra_0':r"$\Delta \alpha_\mathrm{J051132}$\,(mas)", 'dec_0':r"$\Delta \delta_\mathrm{J051132}$\,(mas)", 'ra_1':r"$\Delta \alpha_\mathrm{VC}$\,(mas)", 'dec_1':r"$\Delta \delta_\mathrm{VC}$\,(mas)", 'px_0_1':r"$\varpi$\,(mas)", 'mu_a_0_1':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", 'mu_d_0_1':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$", 'efac_0_1':r"$\eta_\mathrm{EFAC}$"})
+        cornerplot.cornerplot(cornerplot_variables_dict={'ra_0':r"$\Delta \alpha_\mathrm{J051132}$\,(mas)", 'dec_0':r"$\Delta \delta_\mathrm{J051132}$\,(mas)", 'ra_1':r"$\Delta \alpha_\mathrm{VC}$\,(mas)", 'dec_1':r"$\Delta \delta_\mathrm{VC}$\,(mas)", 'px_0_1':r"$\varpi$\,(mas)", 'mu_d_0_1':r"$\mu_{\delta}\,(\mathrm{mas~{yr}^{-1}})$", 'mu_a_0_1':r"$\mu_{\alpha}\,(\mathrm{mas~{yr}^{-1}})$", 'efac_0_1':r"$\eta_\mathrm{EFAC}$"})
         
 
     Input parameters
