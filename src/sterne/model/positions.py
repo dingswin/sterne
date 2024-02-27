@@ -196,12 +196,19 @@ def observed_positions_subtracted_by_proper_motion(refepoch, dict_VLBI, filter_i
         ra_offset, dec_offset = observed_position_subtracted_by_proper_motion(refepoch, epochs[i], ra, dec, filter_index, dict_parameters, no_px)
         ra_offsets.append(ra_offset)
         dec_offsets.append(dec_offset)
-
+    
     errs = dict_VLBI['errs']
+    radec_errs = convert_radec_errs_rad2mas(errs, dec)
+    return np.concatenate((ra_offsets, dec_offsets)), radec_errs
+
+def convert_radec_errs_rad2mas(errs, dec):
+    NoE = int(len(errs) / 2)
     errs *= (u.rad).to(u.mas)
     ra_errs = errs[:NoE] * np.cos(dec)
     dec_errs = errs[NoE:]
-    return np.concatenate((ra_offsets, dec_offsets)), np.concatenate((ra_errs, dec_errs))
+    radec_errs = np.concatenate((ra_errs, dec_errs))
+    return radec_errs
+
 
 def observed_position_subtracted_by_proper_motion(refepoch, epoch, ra, dec, filter_index, dict_parameters, no_px):
 
