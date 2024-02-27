@@ -46,6 +46,10 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
             EFAC is used to find appropriate systematics following the relation:
             err_new**2 = err_random**2 + (EFAC * err_sys_old)**2.
             Here, the EFAC_prior would apply to all EFACs.
+        4) efad_prior : list of 2 floats (default : [0,20])
+            EFAD is an additional EFAC that only applies to systematics in the declination direction.
+            Namely, err_dec_new**2 = err_random_dec**2 + (EFAC * EFAD * err_sys_old_dec)**2.
+            When EFAD is not requested, it is fixed to 1 (hence not inferred).
     """
     if type(pmparins) != list:
         print('pmparins has to be a list. Exiting for now.')
@@ -68,6 +72,10 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         efac_prior = kwargs['efac_prior']
     except KeyError:
         efac_prior = [0, 15]
+    try:
+        efad_prior = kwargs['efad_prior']
+    except KeyError:
+        efad_prior = [0,20]
     inits = pmparins[0].replace('.pmpar.in','')
     inits = inits + '.inits'
     writefile = open(inits, 'w')
@@ -79,7 +87,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl in rad; om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():
-        if not (('om_asc' in parameter) or ('incl' in parameter) or ('efac' in parameter)):
+        if not (('om_asc' in parameter) or ('incl' in parameter) or ('efac' in parameter) or ('efad' in parameter)):
             related_pmparins_indice, root = parameter_name_to_pmparin_indice(parameter)
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
@@ -89,6 +97,8 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
             writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
         elif 'efac' in parameter:
             writefile.write('%s: %f,%f,Uniform\n' % (parameter, efac_prior[0], efac_prior[1]))
+        elif 'efad' in parameter:
+            writefile.write('%s: %f,%f,Uniform\n' % (parameter, efad_prior[0], efad_prior[1]))
         else:
             pass
     writefile.close()
@@ -257,7 +267,7 @@ class __Sine_deg(Prior):
 
 def get_parameters_from_shares(shares):
     parameters = {}
-    roots = parameter_roots = ['dec', 'efac', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    roots = parameter_roots = ['dec', 'efac', 'efad', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
     NoP = number_of_pmparins = len(shares[0])
     for i in range(len(roots)):
         list_of_strings = group_elements_by_same_values(shares[i])
@@ -310,7 +320,7 @@ def read_inits(initsfile):
     DoD_additional_constraints['sin_incl_limits_constraints'] = {}
     for line in lines:
         if not line.startswith('#'):
-            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc', 'efac']:
+            for keyword in ['ra', 'dec', 'mu_a', 'mu_d', 'px', 'incl', 'om_asc', 'efac', 'efad']:
                 if keyword in line:
                     parameter = line.split(':')[0].strip()
                     limits = line.split(':')[-1].strip().split(',')

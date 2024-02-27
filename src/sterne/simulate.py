@@ -46,10 +46,10 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         1) shares : 2-D array 
             (default : [list(range(N)),[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,[0]*N,list(range(N))]) 
             Used to assign shared parameters to fit and which paramters to not fit.
-            The size of shares is 8*N, 8 refers to the 8 parameters ('dec','efac', 'incl',
+            The size of shares is 9*N, 9 refers to the 9 parameters ('dec','efac', 'efad', 'incl',
             'mu_a','mu_d','Om_asc','px','ra' in alphabetic order); N refers to the number
             of pmparins. As an example, for four pmparins, shares can be
-            [[0,0,1,1],[0,1,2,2],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
+            [[0,0,1,1],[0,1,2,2],[0,0,0,0],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,1,1],[0,0,0,0],[0,1,2,3]].
             Same numbers in the same row shares the same parameter (e.g. 'px' is shared by all
             pmparins). Furthermore, if shares[i][j]<0, it means the inference for
             parameter[i] with pmparins[j] is turned off. This turn-off function is not so
