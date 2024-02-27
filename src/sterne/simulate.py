@@ -71,11 +71,13 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         7) pmparin_preliminaries : list of str (default : None)
             A list of pmpar.in.preliminary files which record random errors. Once this is provided,
             EFAC will be fit for. Otherwise, EFAC will not be inferred (accordingly one more 
-            degree of freedom). When pmparin_preliminaries==None, the inference for efac would be
-            turned off.
+            degree of freedom). When pmparin_preliminaries==None, the inference for efac (and efad) would 
+            be turned off.
             The error is corrected following the relation:
             errs_new**2 = errs_random**2 + (efac * errs_sys)**2, where errs_random and errs_sys
             stand for random errors and systematic errors, respectively.
+            When efad is requested, it is applied to errors in declinations in the following way:
+            errs_new**2 = errs_random**2 + (efac * efad * errs_sys)**2.
 
     Caveats
     -------
@@ -84,7 +86,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         Should there be a remarkable a1dot owing to gravitational-wave damping, the reflex
         motion is normally not prominent (as the orbit is usually compact).
 
-    ** Examples ** :
+    ** Examples ** : (not updated to efac and efad situations)
         1) For two pulsars in a globular cluster:
             simulate(57444,'a.inits','p1.pmpar.in','','p2.pmpar.in','p2.par',shares=[[0,1],
                 [-1,0],[0,1],[0,1],[-1,0],[0,0],[0,1]])
@@ -129,7 +131,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     try:
         shares = kwargs['shares']
     except KeyError:
-        shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
+        shares = [list(range(NoP)), [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP, [0]*NoP,\
             [0]*NoP, [0]*NoP, list(range(NoP))]
     print(pmparins, parfiles, initsfile, shares)
     
@@ -165,6 +167,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     except KeyError:
         pmparin_preliminaries = None
         shares[1] = [-1] * NoP ## turn off efac inference
+        shares[2] = [-1] * NoP ## turn off efad inference
     ##############################################################
     #################  get two list_of_dict ######################
     ##############################################################
@@ -302,8 +305,16 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
     Ps = list(FP.keys())
     Ps.sort()
     efac = FP[Ps[1]]
+    efad = FP[Ps[2]]
+    
+    N = int(len(VLBI_dict['errs']) / 2)
+    if efad != -999:
+        efads = np.concatenate([np.ones(N), efad * np.ones(N)])
+    else:
+        efads = np.ones(2 * N)
+    
     if efac != -999: 
-        errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * VLBI_dict['errs_sys'])**2
+        errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * efads * VLBI_dict['errs_sys'])**2
     else: ## if efac is not to be inferred
         errs_new_sq = VLBI_dict['errs']**2
     return errs_new_sq**0.5
