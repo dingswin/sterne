@@ -65,9 +65,11 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     
     try:
         legend_labels = kwargs['legend_labels']
+        print_legend = True
     except KeyError:
         if NoP >= 1:
             legend_labels = [''] * NoP
+            print_legend = False
     try:
         colors = kwargs['colors']
     except KeyError:
@@ -156,8 +158,9 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
         ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs_new[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
         ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
         ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs_new[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
-
-    ax1.legend(loc=legend_loc)
+    
+    if print_legend:
+        ax1.legend(loc=legend_loc)
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_time_nopm_Bayesian.pdf')
     plt.clf()
