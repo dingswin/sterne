@@ -31,7 +31,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     pmparins : list of str
         List of pmparin files, e.g., ['J2222-0137.pmpar.in'].
     shares : 2-D array
-        A 8*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
+        A 9*N 2-D array detailing which fitted paramters are commonly used by which pmparins.
         See the docstring for simulate.simulate() for more details.
 
     kwargs : 
