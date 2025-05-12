@@ -58,6 +58,9 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             'iterations' that will be passed to bilby.run_sampler().
             Changing "iterations" to over 500 would avoid fuzzy corner plots, while
             "interations"=1000 would make smooth corner plots.
+            NOTE:
+            when sampler is ptemcee, iterations is used for nsamples of the sampler.
+            
         3) nwalkers : float (default : 30)
             'nwalkers' that will be passed to bilby.run_sampler().
         4) outdir : float
@@ -78,6 +81,8 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             stand for random errors and systematic errors, respectively.
             When efad is requested, it is applied to errors in declinations in the following way:
             errs_new**2 = errs_random**2 + (efac * efad * errs_sys)**2.
+        8) sampler: str (default : 'emcee')
+            when the posterior distribution is unimodal, using 'emcee' is fine. Otherwise, use 'ptemcee' instead.
 
     Caveats
     -------
@@ -152,6 +157,14 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         nwalkers = kwargs['nwalkers']
     except KeyError:
         nwalkers = 30
+    try:
+        sampler = kwargs['sampler']
+    except KeyError:
+        sampler = 'emcee' ## when the posterior distribution is multi-modal, use 'ptemcee' instead
+    #try:
+    #    nsamples = kwargs['nsamples']
+    #except KeyError:
+    #    nsamples = 100
 
     try:
         a1dot_constraints = kwargs['a1dot_constraints']
@@ -189,7 +202,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             shares, positions, DoD_additional_constraints, a1dot_constraints)
 
         result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
-            sampler='emcee', nwalkers=nwalkers, iterations=iterations, outdir=outdir)
+            sampler=sampler, nwalkers=nwalkers, iterations=iterations,  outdir=outdir, pos0='prior', nsamples=iterations)
     jsonfile = outdir + '/label_result.json' 
     result = bilby.result.read_in_result(filename=jsonfile) 
     result.save_posterior_samples(filename=saved_posteriors)
