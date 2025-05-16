@@ -128,7 +128,8 @@ def solve_u(e, c, precision=1e-5):
 def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     """
     Following mathematical formalism detailed in Eqn 55 through 63 
-        in the Tempo2 paper (ref1).
+        in the Tempo2 paper (ref1), except that the sign in Eqn 61 appears to be a typo
+        and has been corrected.
 
     Caveats
     -------
@@ -136,6 +137,7 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     2. Two differently formulated A_u in Eqn 57 and Eqn 58 is considered the same.
     3. Relativistic deformations of the eccentricity, given by Eqn 59 and 60, is
         not taken into account.
+
 
 
     Input paramters
