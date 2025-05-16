@@ -128,7 +128,8 @@ def solve_u(e, c, precision=1e-5):
 def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     """
     Following mathematical formalism detailed in Eqn 55 through 63 
-        in the Tempo2 paper (ref1).
+        in the Tempo2 paper (ref1), except that the sign in Eqn 61 appears to be
+        a typo.
 
     Caveats
     -------
@@ -183,7 +184,7 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     except KeyError:
         adot = None
 
-    n = (2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2)) * u.rad #angular velocity
+    n = (2*np.pi/Pb0 - np.pi*Pbdot*(epoch-T0)/(Pb0**2)) * u.rad #angular velocity
     #n = 2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2) #angular velocity
     u1 = solve_u(e, (n*(epoch-T0)).value)[0] #u1 stands for u, not to clash with u=astropy.units
     #u1 *= u.rad
