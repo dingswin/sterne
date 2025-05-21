@@ -200,9 +200,13 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         
         likelihood = Gaussianlikelihood(refepoch, list_of_dict_timing, list_of_dict_VLBI,\
             shares, positions, DoD_additional_constraints, a1dot_constraints)
-
-        result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
-            sampler=sampler, nwalkers=nwalkers, iterations=iterations,  outdir=outdir, pos0='prior', nsamples=iterations)
+        if sampler != 'emcee':
+            result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
+                sampler=sampler, nwalkers=nwalkers, iterations=iterations,  outdir=outdir, pos0='prior', nsamples=iterations)
+        else:
+            result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
+                sampler=sampler, nwalkers=nwalkers, iterations=iterations,  outdir=outdir)
+            
     jsonfile = outdir + '/label_result.json' 
     result = bilby.result.read_in_result(filename=jsonfile) 
     result.save_posterior_samples(filename=saved_posteriors)
