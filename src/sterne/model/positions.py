@@ -203,9 +203,9 @@ def observed_positions_subtracted_by_proper_motion(refepoch, dict_VLBI, filter_i
 
 def convert_radec_errs_rad2mas(errs, dec):
     NoE = int(len(errs) / 2)
-    errs *= (u.rad).to(u.mas)
-    ra_errs = errs[:NoE] * np.cos(dec)
-    dec_errs = errs[NoE:]
+    errs_mas = (u.rad).to(u.mas) * errs
+    ra_errs = errs_mas[:NoE] * np.cos(dec)
+    dec_errs = errs_mas[NoE:]
     radec_errs = np.concatenate((ra_errs, dec_errs))
     return radec_errs
 

@@ -265,42 +265,59 @@ def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.write('The reference epoch is MJD %d \n' % refepoch)
     writefile.close()
+    return dict_median, outputfile
 
-def make_a_brief_summary_of_Bayesian_inference(samplefile):
+def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True):
     t = Table.read(samplefile, format='ascii')
     parameters = t.colnames[:-2]
     dict_median = {}
     dict_bound = {} #16% and 84% percentiles
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
-    writefile = open(outputfile, 'w')
-    writefile.write('#Medians of the simulated samples:\n')
-    writefile.write('#(Units: px in mas; mu_a and mu_d in mas/yr; incl in rad.)\n')
-    for p in parameters:
-        if 'om_asc' in p: ## for om_asc
-            dict_median[p], upper_side_error, lower_side_error = others.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
-            writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
-        else:
-            dict_median[p] = others.sample2median(t[p])
-            dict_bound[p] = others.sample2median_range(t[p], 1)
-            if 'ra' in p:
-                writefile.write('%s = %s + %f - %f (ms)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi/15), (dict_bound[p][1]-dict_median[p])*180/np.pi/15*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi/15*3600*1000))
-            elif 'dec' in p:
-                writefile.write('%s = %s + %f - %f (mas)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi), (dict_bound[p][1]-dict_median[p])*180/np.pi*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi*3600*1000))
+    if write:
+        writefile = open(outputfile, 'w')
+        writefile.write('#Medians of the simulated samples:\n')
+        writefile.write('#(Units: px in mas; mu_a and mu_d in mas/yr; incl in rad.)\n')
+        for p in parameters:
+            if 'om_asc' in p: ## for om_asc
+                dict_median[p], upper_side_error, lower_side_error = others.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
+                writefile.write('%s = %f + %f - %f (deg)\n' % (p, dict_median[p], upper_side_error, lower_side_error)) 
             else:
-                writefile.write('%s = %f + %f - %f\n' % (p, dict_median[p],\
-                    dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
-    
-    ## >>> estimate correlation coefficients
-    DoR = dict_of_correlation_coefficient = {}
-    writefile.write('\n#Correlation coefficients:\n')
-    for i in range(1, len(parameters)):
-        for j in range(i):
-            key = 'r__' + parameters[j] + '__' + parameters[i]
-            DoR[key] = np.corrcoef(t[parameters[j]], t[parameters[i]])[0,1]
-            writefile.write('%s = %f\n' % (key, DoR[key]))
-    #print(DoR)
-    ## <<<
-    writefile.close()
+                dict_median[p] = others.sample2median(t[p])
+                dict_bound[p] = others.sample2median_range(t[p], 1)
+                if 'ra' in p:
+                    writefile.write('%s = %s + %f - %f (ms)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi/15), (dict_bound[p][1]-dict_median[p])*180/np.pi/15*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi/15*3600*1000))
+                elif 'dec' in p:
+                    writefile.write('%s = %s + %f - %f (mas)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi), (dict_bound[p][1]-dict_median[p])*180/np.pi*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi*3600*1000))
+                else:
+                    writefile.write('%s = %f + %f - %f\n' % (p, dict_median[p],\
+                        dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+        
+        ## >>> estimate correlation coefficients
+        DoR = dict_of_correlation_coefficient = {}
+        writefile.write('\n#Correlation coefficients:\n')
+        for i in range(1, len(parameters)):
+            for j in range(i):
+                key = 'r__' + parameters[j] + '__' + parameters[i]
+                DoR[key] = np.corrcoef(t[parameters[j]], t[parameters[i]])[0,1]
+                writefile.write('%s = %f\n' % (key, DoR[key]))
+        #print(DoR)
+        ## <<<
+        writefile.close()
+    else:
+        for p in parameters:
+            if 'om_asc' in p: ## for om_asc
+                dict_median[p], upper_side_error, lower_side_error = others.periodic_sample2estimate(t[p]) ## the narrowest confidence interval is the error bound, the median of this interval is used as the median.
+            else:
+                dict_median[p] = others.sample2median(t[p])
+                dict_bound[p] = others.sample2median_range(t[p], 1)
+        
+        ## >>> estimate correlation coefficients
+        DoR = dict_of_correlation_coefficient = {}
+        for i in range(1, len(parameters)):
+            for j in range(i):
+                key = 'r__' + parameters[j] + '__' + parameters[i]
+                DoR[key] = np.corrcoef(t[parameters[j]], t[parameters[i]])[0,1]
+        ## <<<
     return dict_median, outputfile
     
 
@@ -334,7 +351,8 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
         errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * efads * VLBI_dict['errs_sys'])**2
     else: ## if efac is not to be inferred
         errs_new_sq = VLBI_dict['errs']**2
-    return errs_new_sq**0.5
+    errs_new = errs_new_sq**0.5
+    return errs_new 
 
 
 
@@ -481,7 +499,9 @@ def readpmparin(pmparin):
     for line in lines:
         #if 'epoch' in line and not line.strip().startswith('#'):
         #    refepoch = line.split('=')[1].strip()
-        if line.count(':')==4 and (not line.strip().startswith('#')): 
+        if line.count(':')==4 and (not line.strip().startswith('#')):
+            for i in range(10):
+                line = line.replace('  ', ' ')
             epoch, RA, errRA, DEC, errDEC = line.strip().split(' ')
             epoch = decyear2mjd(float(epoch.strip())) #in MJD
             DEC = others.dms2deg(DEC.strip()) #in deg

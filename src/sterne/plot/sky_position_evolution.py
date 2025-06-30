@@ -259,7 +259,7 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
 
     t = Table.read(posterior_samples, format='ascii')
     parameters = t.colnames[:-2]
-    dict_median, outputfile = simulate.make_a_brief_summary_of_Bayesian_inference(posterior_samples)
+    dict_median, outputfile = simulate.make_a_brief_summary_of_Bayesian_inference(posterior_samples, False)
     
     epochs = LoD_VLBI[0]['epochs']
     NoE = len(epochs)
