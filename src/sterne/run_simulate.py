@@ -30,7 +30,7 @@ parser.add_argument("-a", "--a1dot", dest="a1dot_constraints", type=str,
                     help="a1dot constraints, a list of list of 2 floats. e.g. [[mu, sigma], []], (both in lt-sec/sec), where mu and sigma refers to the Gaussian distribution for a1dot. The length of a1dot_constraint needs to match len(pmparins), unless None.")
 parser.add_argument("-o", "--outdir", dest="outdir", type=str, default='outdir',
                     metavar="outdir", help="the output directory")
-parser.add_argument("-c", "--clearoutdir", dest="clearoutdir", default='False', 
+parser.add_argument("-c", "--clearoutdir", dest="clearoutdir", default=False, 
                     action="store_true", help="clear outdir")
 
 options         = parser.parse_args()

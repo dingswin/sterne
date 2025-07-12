@@ -102,6 +102,7 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         else:
             pass
     writefile.close()
+    return inits
 
 def create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma=20):
     """
@@ -201,6 +202,8 @@ def readpmparout(pmparout):
     for line in lines:
         if 'RA' in line:
             error_RA = float(line.split('+-')[1].strip().split(' ')[0])
+            if error_RA == 0:
+                error_RA = 1e-6
         if 'Dec  ' in line:
             error_Dec = float(line.split('+-')[1].strip().split(' ')[0])
         for estimate in ['mu_a', 'mu_d', 'pi']:
