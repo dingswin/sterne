@@ -265,14 +265,24 @@ class reflex_motion_detectability:
         [ra, error_ra, dec, error_dec, mu_a, error_mu_a, mu_d, error_mu_d, px, err_px, rcs, junk] = priors.readpmparout(pmparout)
         
         try:
+            psrname = kwargs['psrname']
+        except KeyError:
+            psrname = ''
+
+        try:
             a1 = kwargs['a1']
         except KeyError:
             print('a1 is not provided; fetching from PSRCAT')
-            psrname = pmparin.split('.')[0]
-            print('Guess the pulsar name to be %s' % psrname)
-            query1 = QueryATNF(psrs=[psrname], params=['A1'])
-            a1 = float(query1['A1'][0])
-            print(a1)
+            if psrname == '':
+                psrname = pmparin.split('.')[0]
+            if psrname.startswith('J') or psrname.startswith('B'):
+                print('Guess the pulsar name to be %s' % psrname)
+                query1 = QueryATNF(psrs=[psrname], params=['A1'])
+                a1 = float(query1['A1'][0])
+                print(a1)
+            else:
+                print('pulsar name is not clear; exiting')
+                sys.exit()
         
         eta_orb = self.calculate_eta_orb(a1, px, err_px, rcs)
         return eta_orb
