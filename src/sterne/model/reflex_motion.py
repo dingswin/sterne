@@ -275,8 +275,8 @@ class reflex_motion_detectability:
             print('a1 is not provided; fetching from PSRCAT')
             if psrname == '':
                 psrname = pmparin.split('.')[0]
-            if psrname.startswith('J') or psrname.startswith('B'):
                 print('Guess the pulsar name to be %s' % psrname)
+            if psrname.startswith('J') or psrname.startswith('B'):
                 query1 = QueryATNF(psrs=[psrname], params=['A1'])
                 a1 = float(query1['A1'][0])
                 print(a1)
