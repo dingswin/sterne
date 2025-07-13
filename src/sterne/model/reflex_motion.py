@@ -61,7 +61,7 @@ def read_parfile(parfile):
     dict_parameter = {}
     for line in lines:
         for i in range(len(keywords_needed)):
-            if keywords_needed[i] in line:
+            if (keywords_needed[i] in line) and (not line.startswith('#')):
                 alist = line.split(' '*8)
                 alist = [element.strip() for element in alist]
                 while True:
