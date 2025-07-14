@@ -78,14 +78,14 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
         efac_prior = kwargs['efac_prior']
     except KeyError:
         if log_efac:
-            efac_prior = [-3, 3]
+            efac_prior = [-4, 4]
         else:
             efac_prior = [0, 15]
     try:
         efad_prior = kwargs['efad_prior']
     except KeyError:
         if log_efac:
-            efad_prior = [-3, 3]
+            efad_prior = [-5, 5]
         else:
             efad_prior = [0, 20]
     inits = pmparins[0].replace('.pmpar.in','')

@@ -266,7 +266,7 @@ def create_list_of_dict_VLBI(pmparins, pmparin_preliminaries=None):
     
 
 def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing, log_efac):
-    dict_median, outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile, log_efac)
+    dict_median, outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile, True, log_efac)
     writefile = open(outputfile, 'a')
     chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median, log_efac)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
@@ -279,6 +279,7 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True, log_efac=
     parameters = t.colnames[:-2]
     dict_median = {}
     dict_bound = {} #16% and 84% percentiles
+    dict_median_log, dict_bound_log = {}, {}
     outputfile = samplefile.replace('posterior_samples', 'bayesian_estimates')
     if write:
         writefile = open(outputfile, 'w')
@@ -300,6 +301,11 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True, log_efac=
                 else:
                     writefile.write('%s = %f + %f - %f\n' % (p, dict_median[p],\
                         dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
+                    if (('efac' in p) or ('efad' in p)) and (not log_efac):
+                        dict_median_log[p] = others.sample2median(np.log(t[p]))
+                        dict_bound_log[p] = others.sample2median_range(np.log(t[p]), 1)
+                        writefile.write('log(%s) = %f + %f - %f\n' % (p, dict_median_log[p],\
+                            dict_bound_log[p][1]-dict_median_log[p], dict_median_log[p]-dict_bound_log[p][0]))
         
         ## >>> estimate correlation coefficients
         DoR = dict_of_correlation_coefficient = {}
