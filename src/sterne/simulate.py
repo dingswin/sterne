@@ -202,7 +202,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             shares, positions, DoD_additional_constraints, a1dot_constraints)
         if sampler != 'emcee':
             result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
-                sampler=sampler, nwalkers=nwalkers, iterations=iterations,  outdir=outdir, pos0='prior', nsamples=iterations)
+                sampler=sampler, nwalkers=nwalkers, outdir=outdir, pos0='prior', nsamples=iterations)
         else:
             result = bilby.run_sampler(likelihood=likelihood, priors=priors,\
                 sampler=sampler, nwalkers=nwalkers, iterations=iterations,  outdir=outdir)
