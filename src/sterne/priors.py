@@ -50,6 +50,8 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
             EFAD is an additional EFAC that only applies to systematics in the declination direction.
             Namely, err_dec_new**2 = err_random_dec**2 + (EFAC * EFAD * err_sys_old_dec)**2.
             When EFAD is not requested, it is fixed to 1 (hence not inferred).
+        5) log_efac : bool (default : False)
+            if True, log(efac) and log(efad) will be inferred if they are requested.
     """
     if type(pmparins) != list:
         print('pmparins has to be a list. Exiting for now.')
@@ -61,6 +63,10 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     dict_limits = create_dictionary_of_boundaries_with_pmpar(refepoch, pmparins, HowManySigma)
     parameters = get_parameters_from_shares(shares)
     try:
+        log_efac = kwargs['log_efac']
+    except KeyError:
+        log_efac = False
+    try:
         incl_prior = kwargs['incl_prior']
     except KeyError:
         incl_prior = [0, 3.141592653589793]
@@ -71,11 +77,17 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     try:
         efac_prior = kwargs['efac_prior']
     except KeyError:
-        efac_prior = [0, 15]
+        if log_efac:
+            efac_prior = [-3, 3]
+        else:
+            efac_prior = [0, 15]
     try:
         efad_prior = kwargs['efad_prior']
     except KeyError:
-        efad_prior = [0,20]
+        if log_efac:
+            efad_prior = [-3, 3]
+        else:
+            efad_prior = [0, 20]
     inits = pmparins[0].replace('.pmpar.in','')
     inits = inits + '.inits'
     writefile = open(inits, 'w')
@@ -84,6 +96,8 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     writefile.write('#If Uniform or Sine distribution is requested, then the two values stand for lower and upper limit.\n')
     writefile.write('#If Gaussian distribution is requested, then the two values stand for mu and sigma.\n')
     writefile.write('#The Uniform prior info is based on the pmpar results.\n')
+    if log_efac:
+        writefile.write('#efac and efad priors given below are for log(efac) and log(efad).\n')
     writefile.write('#Units: dec and ra in rad; px in mas; mu_a and mu_d in mas/yr; incl in rad; om_asc in deg.\n')
     writefile.write('#parameter name explained: dec_0_1, for example, means this dec parameter is inferred for both pmparin0 and pmparin1.\n')
     for parameter in parameters.keys():

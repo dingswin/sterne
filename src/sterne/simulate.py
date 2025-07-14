@@ -83,6 +83,8 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             errs_new**2 = errs_random**2 + (efac * efad * errs_sys)**2.
         8) sampler: str (default : 'emcee')
             when the posterior distribution is unimodal, using 'emcee' is fine. Otherwise, use 'ptemcee' instead.
+        9) log_efac : bool (default : False)
+            if True, efac and efad will actually be log(efac) log(efad).
 
     Caveats
     -------
@@ -181,6 +183,11 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         pmparin_preliminaries = None
         shares[1] = [-1] * NoP ## turn off efac inference
         shares[2] = [-1] * NoP ## turn off efad inference
+
+    try:
+        log_efac = kwargs['log_efac']
+    except KeyError:
+        log_efac = False
     ##############################################################
     #################  get two list_of_dict ######################
     ##############################################################
@@ -211,7 +218,7 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     result = bilby.result.read_in_result(filename=jsonfile) 
     result.save_posterior_samples(filename=saved_posteriors)
     make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
-        list_of_dict_VLBI, list_of_dict_timing)
+        list_of_dict_VLBI, list_of_dict_timing, log_efac)
     result.plot_corner() ## this may fail when run in the background, therefore put in the last
 
 def create_list_of_dict_timing(parfiles):
@@ -258,16 +265,16 @@ def create_list_of_dict_VLBI(pmparins, pmparin_preliminaries=None):
     return list_of_dict_VLBI
     
 
-def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing):
-    dict_median, outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile)
+def make_a_summary_of_bayesian_inference(samplefile, refepoch, list_of_dict_VLBI, list_of_dict_timing, log_efac):
+    dict_median, outputfile = make_a_brief_summary_of_Bayesian_inference(samplefile, log_efac)
     writefile = open(outputfile, 'a')
-    chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median)
+    chi_sq, rchsq = calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median, log_efac)
     writefile.write('\nchi-square = %f\nreduced chi-square = %f\n' % (chi_sq, rchsq))
     writefile.write('The reference epoch is MJD %d \n' % refepoch)
     writefile.close()
     return dict_median, outputfile
 
-def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True):
+def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True, log_efac=False):
     t = Table.read(samplefile, format='ascii')
     parameters = t.colnames[:-2]
     dict_median = {}
@@ -276,6 +283,8 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True):
     if write:
         writefile = open(outputfile, 'w')
         writefile.write('#Medians of the simulated samples:\n')
+        if log_efac:
+            writefile.write('#log(efac) and log(efad) are reported here for efac and efad.\n')
         writefile.write('#(Units: px in mas; mu_a and mu_d in mas/yr; incl in rad.)\n')
         for p in parameters:
             if 'om_asc' in p: ## for om_asc
@@ -321,20 +330,20 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True):
     return dict_median, outputfile
     
 
-def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median):
+def calculate_reduced_chi_square(refepoch, list_of_dict_VLBI, list_of_dict_timing, dict_median, log_efac):
     LoD_VLBI, LoD_timing = list_of_dict_VLBI, list_of_dict_timing
     chi_sq = 0
     NoO = number_of_observations = 0
     for i in range(len(LoD_VLBI)):
         res = LoD_VLBI[i]['radecs'] - positions(refepoch, LoD_VLBI[i]['epochs'], LoD_timing[i], i, dict_median)
-        errs_new = adjust_errs_with_efac(LoD_VLBI[i], dict_median, i)
+        errs_new = adjust_errs_with_efac(LoD_VLBI[i], dict_median, i, log_efac)
         chi_sq += np.sum((res/errs_new)**2) #if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
         NoO += 2 * len(LoD_VLBI[i]['epochs'])
     DoF = degree_of_freedom = NoO - len(dict_median)
     rchsq = chi_sq / DoF
     return chi_sq, rchsq
 
-def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
+def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index, log_efac=False):
     FP = filter_dictionary_of_parameter_with_index(parameters_dict, parameter_filter_index)
     Ps = list(FP.keys())
     Ps.sort()
@@ -343,12 +352,18 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
     
     N = int(len(VLBI_dict['errs']) / 2)
     if efad != -999:
-        efads = np.concatenate([np.ones(N), efad * np.ones(N)])
+        if log_efac:
+            efads = np.concatenate([np.ones(N), np.exp(efad) * np.ones(N)])
+        else:
+            efads = np.concatenate([np.ones(N), efad * np.ones(N)])
     else:
         efads = np.ones(2 * N)
     
-    if efac != -999: 
-        errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * efads * VLBI_dict['errs_sys'])**2
+    if efac != -999:
+        if log_efac:
+            errs_new_sq = (VLBI_dict['errs_random'])**2 + (np.exp(efac) * efads * VLBI_dict['errs_sys'])**2
+        else:
+            errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * efads * VLBI_dict['errs_sys'])**2
     else: ## if efac is not to be inferred
         errs_new_sq = VLBI_dict['errs']**2
     errs_new = errs_new_sq**0.5
@@ -358,7 +373,7 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index):
 
 
 class Gaussianlikelihood(bilby.Likelihood):
-    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, DoD_additional_constraints, a1dot_constraints=False):
+    def __init__(self, refepoch, list_of_dict_timing, list_of_dict_VLBI, shares, positions, DoD_additional_constraints, a1dot_constraints=False, log_efac=False):
         """
         Addition of multiple Gaussian likelihoods
 
@@ -375,7 +390,8 @@ class Gaussianlikelihood(bilby.Likelihood):
         self.shares = shares
         self.number_of_pmparins = len(self.LoD_VLBI)
         #self.pmparin_preliminaries = pmparin_preliminaries
-        self.dict_sin_incl_Gaussian_constraints = DoD_additional_constraints['sin_incl_Gaussian_constraints'] 
+        self.dict_sin_incl_Gaussian_constraints = DoD_additional_constraints['sin_incl_Gaussian_constraints']
+        self.log_efac = log_efac
         
         if a1dot_constraints != False:
             self.a1dot_constraints, self.a1dot_mus, self.a1dot_sigmas = self.parse_a1dot_constraints(a1dot_constraints)
@@ -401,7 +417,7 @@ class Gaussianlikelihood(bilby.Likelihood):
         log_p = 0
         for i in range(self.number_of_pmparins):
             res = self.LoD_VLBI[i]['radecs'] - self.positions(self.refepoch, self.LoD_VLBI[i]['epochs'], self.LoD_timing[i], i, self.parameters)
-            errs_new = adjust_errs_with_efac(self.LoD_VLBI[i], self.parameters, i) 
+            errs_new = adjust_errs_with_efac(self.LoD_VLBI[i], self.parameters, i, self.log_efac) 
             log_p += -0.5 * np.sum((res/errs_new)**2) ##if both RA and errRA are weighted by cos(DEC), the weighting is canceled out
             log_p += -1 * np.sum(np.log(errs_new))
         
