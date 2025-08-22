@@ -36,8 +36,9 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
 
     kwargs : 
         1) incl_prior : list of 2 floats
-            in rad. e.g. [lower_limit, upper_limit] for all inclinations.
-            ## In future, it will be extended to list of list of 2 floats
+            in rad. e.g. [lower_limit, upper_limit, 'G'] for all inclinations.
+            ## In future, it will be extended to list of list of 2 floats and a string,
+            where 'G', 'S' and 'U' stands for Gaussian, sine and uniform distribution, respectively.
             ## e.g. [[lower_limit, upper_limit]] for orbital inclinations.
         2) om_asc_prior : list of 2 floats
             in deg. e.g. [lower_limit, upper_limit] for all orbit ascending node longitudes.
@@ -69,23 +70,23 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
     try:
         incl_prior = kwargs['incl_prior']
     except KeyError:
-        incl_prior = [0, 3.141592653589793]
+        incl_prior = [0, 3.141592653589793, 'S']
     try:
         om_asc_prior = kwargs['om_asc_prior']
     except KeyError:
-        om_asc_prior = [0, 360]
+        om_asc_prior = [0, 360, 'U']
     try:
         efac_prior = kwargs['efac_prior']
     except KeyError:
         if log_efac:
-            efac_prior = [-4, 4]
+            efac_prior = [0, 2] ## Gassian
         else:
             efac_prior = [0, 15]
     try:
         efad_prior = kwargs['efad_prior']
     except KeyError:
         if log_efac:
-            efad_prior = [-5, 5]
+            efad_prior = [0, 2] ## Gaussian
         else:
             efad_prior = [0, 20]
     inits = pmparins[0].replace('.pmpar.in','')
@@ -106,13 +107,27 @@ def generate_initsfile(refepoch, pmparins, shares, HowManySigma=20, **kwargs):
             lower_limit, upper_limit = render_parameter_boundaries(parameter, dict_limits)
             writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, lower_limit, upper_limit))
         elif 'incl' in parameter:
-            writefile.write('%s: %.11f,%.11f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
-        elif 'om_asc' in parameter: 
-            writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
+            if incl_prior[2] == 'S':
+                writefile.write('%s: %.11f,%.11f,Sine\n' % (parameter, incl_prior[0], incl_prior[1]))
+            elif incl_prior[2] == 'G':
+                writefile.write('%s: %.11f,%.11f,Gaussian\n' % (parameter, incl_prior[0], incl_prior[1]))
+            elif incl_prior[2] == 'U':
+                writefile.write('%s: %.11f,%.11f,Uniform\n' % (parameter, incl_prior[0], incl_prior[1]))
+        elif 'om_asc' in parameter:
+            if om_asc_prior[2] == 'U':
+                writefile.write('%s: %f,%f,Uniform\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
+            elif om_asc_prior[2] == 'G':
+                writefile.write('%s: %f,%f,Gaussian\n' % (parameter, om_asc_prior[0], om_asc_prior[1]))
         elif 'efac' in parameter:
-            writefile.write('%s: %f,%f,Uniform\n' % (parameter, efac_prior[0], efac_prior[1]))
+            if log_efac:
+                writefile.write('%s: %f,%f,Gaussian\n' % (parameter, efac_prior[0], efac_prior[1]))
+            else:
+                writefile.write('%s: %f,%f,Uniform\n' % (parameter, efac_prior[0], efac_prior[1]))
         elif 'efad' in parameter:
-            writefile.write('%s: %f,%f,Uniform\n' % (parameter, efad_prior[0], efad_prior[1]))
+            if log_efac:
+                writefile.write('%s: %f,%f,Gaussian\n' % (parameter, efac_prior[0], efac_prior[1]))
+            else:
+                writefile.write('%s: %f,%f,Uniform\n' % (parameter, efad_prior[0], efad_prior[1]))
         else:
             pass
     writefile.close()

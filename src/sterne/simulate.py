@@ -284,8 +284,8 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True, log_efac=
     if write:
         writefile = open(outputfile, 'w')
         writefile.write('#Medians of the simulated samples:\n')
-        #if log_efac:
-        #    writefile.write('#log(efac) and log(efad) are reported here for efac and efad.\n')
+        if log_efac:
+            writefile.write('#log(efac) and log(efad) are shown in the corner plot for efac and efad.\n')
         writefile.write('#(Units: px in mas; mu_a and mu_d in mas/yr; incl in rad.)\n')
         for p in parameters:
             if 'om_asc' in p: ## for om_asc
@@ -300,6 +300,8 @@ def make_a_brief_summary_of_Bayesian_inference(samplefile, write=True, log_efac=
                     writefile.write('%s = %s + %f - %f (mas)\n' % (p, others.deg2dms(dict_median[p]*180/np.pi), (dict_bound[p][1]-dict_median[p])*180/np.pi*3600*1000, (dict_median[p]-dict_bound[p][0])*180/np.pi*3600*1000))
                 elif ('efac' in p) or ('efad' in p):
                     if not log_efac:
+                        writefile.write('%s = %f + %f - %f\n' % (p, dict_median[p],\
+                            dict_bound[p][1]-dict_median[p], dict_median[p]-dict_bound[p][0]))
                         dict_median_log[p] = others.sample2median(np.log(t[p]))
                         dict_bound_log[p] = others.sample2median_range(np.log(t[p]), 1)
                         writefile.write('log(%s) = %f + %f - %f\n' % (p, dict_median_log[p],\
