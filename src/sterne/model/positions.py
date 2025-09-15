@@ -24,7 +24,7 @@ def positions(refepoch, epochs, dict_timing, parameter_filter_index, dict_parame
     dec_models = np.array([])
     for i in range(len(epochs)):
         ra_model, dec_model = position(refepoch, epochs[i], FP[Ps[0]],\
-            FP[Ps[2]], FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], FP[Ps[7]], dict_timing)
+            FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]], FP[Ps[7]], FP[Ps[8]], dict_timing)
         ra_models = np.append(ra_models, ra_model)
         dec_models = np.append(dec_models, dec_model)
     return np.concatenate([ra_models, dec_models])
@@ -53,7 +53,7 @@ def auto_fill_disabled_parameters(filtered_dict_of_parameters):
     """
     so that each parameter can be pinpointed with a number
     """
-    roots = parameter_roots = ['dec', 'efac', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
+    roots = parameter_roots = ['dec', 'efac', 'efad', 'incl', 'mu_a', 'mu_d', 'om_asc', 'px', 'ra']
     for root in roots:
         if not any(root in parameter for parameter in filtered_dict_of_parameters.keys()):
             filtered_dict_of_parameters[root] = -999
@@ -196,12 +196,19 @@ def observed_positions_subtracted_by_proper_motion(refepoch, dict_VLBI, filter_i
         ra_offset, dec_offset = observed_position_subtracted_by_proper_motion(refepoch, epochs[i], ra, dec, filter_index, dict_parameters, no_px)
         ra_offsets.append(ra_offset)
         dec_offsets.append(dec_offset)
-
+    
     errs = dict_VLBI['errs']
+    radec_errs = convert_radec_errs_rad2mas(errs, dec)
+    return np.concatenate((ra_offsets, dec_offsets)), radec_errs
+
+def convert_radec_errs_rad2mas(errs, dec):
+    NoE = int(len(errs) / 2)
     errs *= (u.rad).to(u.mas)
     ra_errs = errs[:NoE] * np.cos(dec)
     dec_errs = errs[NoE:]
-    return np.concatenate((ra_offsets, dec_offsets)), np.concatenate((ra_errs, dec_errs))
+    radec_errs = np.concatenate((ra_errs, dec_errs))
+    return radec_errs
+
 
 def observed_position_subtracted_by_proper_motion(refepoch, epoch, ra, dec, filter_index, dict_parameters, no_px):
 

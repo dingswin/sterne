@@ -65,9 +65,11 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
     
     try:
         legend_labels = kwargs['legend_labels']
+        print_legend = True
     except KeyError:
         if NoP >= 1:
             legend_labels = [''] * NoP
+            print_legend = False
     try:
         colors = kwargs['colors']
     except KeyError:
@@ -80,8 +82,16 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
         dim_random_draw_by = kwargs['dim_random_draw_by']
     except KeyError:
         dim_random_draw_by = 2.0
+    try:
+        pmparin_preliminaries = kwargs['pmparin_preliminaries']
+        if len(pmparin_preliminaries) != NoP:
+            print('The number of pmpar.in.preliminary files has to\
+                match that of pmpar.in files. Exiting for now.')
+            sys.exit(1)
+    except KeyError:
+        pmparin_preliminaries = None
     
-    LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
+    LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins, pmparin_preliminaries)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
     dict_timing = LoD_timing[0] ## see the Notice
     
@@ -140,13 +150,17 @@ def parallax_signature(pmparins, parfiles, refepoch, posterior_samples='outdir/p
 
     for i in range(NoP):
         trs = transparency = errorbar_transparency(i, -0.5)
-        radec_offsets, errs = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median)
+        radec_offsets, _ = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median)
+        errs_new = simulate.adjust_errs_with_efac(LoD_VLBI[i], dict_median, i) ## apply efac (and efad) if requested
+        dec = LoD_VLBI[i]['radecs'][-1]
+        errs_new = positions.convert_radec_errs_rad2mas(errs_new, dec)
         ax1.scatter(epochs, radec_offsets[:NoE], marker='.', alpha=trs, color=colors[i])
-        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
+        ax1.errorbar(epochs, radec_offsets[:NoE], yerr=errs_new[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
         ax2.scatter(epochs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
-        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
-
-    ax1.legend(loc=legend_loc)
+        ax2.errorbar(epochs, radec_offsets[NoE:], yerr=errs_new[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
+    
+    if print_legend:
+        ax1.legend(loc=legend_loc)
     gs1.tight_layout(fig1)
     plt.savefig('ra_dec_time_nopm_Bayesian.pdf')
     plt.clf()
@@ -197,6 +211,9 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
         4. colors : list of str
         5. legend_loc : str (default : 'lower left')
             where on the left panel to place the legend. There are 6 options: 'lower/upper left/center/right'.
+        6. pmparin_preliminaries : list of str (default : None)
+            A list of pmpar.in.preliminary files that record random errors. It is required when efac is requested,
+            unless only using the errors in pmpar.in files for errorbars.
     """
     #########################
     ## set up variables
@@ -226,7 +243,16 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     except KeyError:
         legend_loc = 'lower left'
     
-    LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins)
+    try:
+        pmparin_preliminaries = kwargs['pmparin_preliminaries']
+        if len(pmparin_preliminaries) != NoP:
+            print('The number of pmpar.in.preliminary files has to\
+                match that of pmpar.in files. Exiting for now.')
+            sys.exit(1)
+    except KeyError:
+        pmparin_preliminaries = None
+    
+    LoD_VLBI = list_of_dict_VLBI = simulate.create_list_of_dict_VLBI(pmparins, pmparin_preliminaries)
     LoD_timing = list_of_dict_timing = simulate.create_list_of_dict_timing(parfiles)
     dict_timing = LoD_timing[0] ## see the Notice
     Pb = dict_timing['pb'].value ## orbital period in day
@@ -283,11 +309,14 @@ def reflex_motion_signature(pmparins, parfiles, refepoch, posterior_samples='out
     orbital_phases_obs = ((epochs - refepoch) / Pb) % 1
     for i in range(NoP):
         trs = transparency = errorbar_transparency(i, -0.5)
-        radec_offsets, errs = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median, no_px=True)
+        radec_offsets, _ = positions.observed_positions_subtracted_by_proper_motion(refepoch, LoD_VLBI[i], i, dict_median, no_px=True)
+        errs_new = simulate.adjust_errs_with_efac(LoD_VLBI[i], dict_median, i)
+        dec = LoD_VLBI[i]['radecs'][-1]
+        errs_new = positions.convert_radec_errs_rad2mas(errs_new, dec)
         ax1.scatter(orbital_phases_obs, radec_offsets[:NoE], marker='.', alpha=trs, color=colors[i])
-        ax1.errorbar(orbital_phases_obs, radec_offsets[:NoE], yerr=errs[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
+        ax1.errorbar(orbital_phases_obs, radec_offsets[:NoE], yerr=errs_new[:NoE], fmt='.', markersize=5, capsize=3, alpha=trs, label=legend_labels[i], color=colors[i])
         ax2.scatter(orbital_phases_obs, radec_offsets[NoE:], marker='.', alpha=trs, color=colors[i])
-        ax2.errorbar(orbital_phases_obs, radec_offsets[NoE:], yerr=errs[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
+        ax2.errorbar(orbital_phases_obs, radec_offsets[NoE:], yerr=errs_new[NoE:], fmt='.', markersize=5, capsize=3, alpha=trs, color=colors[i])
 
     ax1.legend(loc=legend_loc)
     plot_title = r'$P_b=%3.2f\,\mathrm{day}$; MJD %d is at orbital phase 0' % (Pb, refepoch)
