@@ -1,0 +1,15 @@
+# Astrometric and binary parameters for J2145-0750
+ref_ra      = 21:45:50.459526
+ref_dec     = -07:50:18.5083
+ref_epoch   = 55657
+pm_ra       = -9.49
+pm_dec      = -9.09
+parallax    = 1.40
+
+# Binary parameters required by forecast_pulsar.py
+# The parfile contains the full ephemeris.
+parfile     = J2145-0750.par
+# Inclination is derived from SINI=0.38 in the parfile (arcsin(0.38)).
+inclination = 22.33
+# OM_ASC is from the parfile.
+omega_asc   = 230

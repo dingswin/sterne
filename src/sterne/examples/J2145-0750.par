@@ -1,0 +1,36 @@
+PSRJ            J2145-0750
+# NOTE: The provided reflex_motion.py script requires BT binary model parameters.
+# The following ECC, OM, and T0 have been derived or proxied from the original
+# ELL1 model parameters (EPS1, EPS2, TASC) to ensure compatibility.
+# This was done by Gemini, purely for illustrative purposes, and accuracy has not been checked.
+DECJ            -07:50:18.5083
+# ECC is Derived from EPS1, EPS2
+ECC             1.933E-05          
+# OM is Derived from EPS1, EPS2
+OM              200.72             
+# Using TASC as a proxy for T0
+T0              50802.29822952     
+ELONG           326.024614276                 6.000e-09
+ELAT            5.31305359                    6.000e-08
+DM              9.00785                       1.400e-04
+PEPOCH          55657
+F0              62.29588783082522             9.000e-14
+F1              -1.156186E-16                 9.000e-22
+POSEPOCH        55657
+BINARY          T2
+PB              6.83890261495                 9.000e-11
+A1              10.16410673                   1.800e-07
+TASC            50802.29822952                3.000e-08
+EPS1            -6.83E-6                      3.000e-08
+EPS2            -1.809E-5                     3.000e-08
+OM_ASC          230                           1.200e+01
+CLK             TT(BIPM2018)
+EPHEM           DE436
+PBDOT           1.3E-13                       2.000e-14
+RM              -4.4                          3.000e-01
+PX              1.40                          8.000e-02
+A1DOT           6.1E-15                       4.000e-16
+PMELONG         -11.973                       5.000e-03
+PMELAT          -5.41                         6.000e-02
+SINI            0.38                          9.000e-02
+UNITS           TCB

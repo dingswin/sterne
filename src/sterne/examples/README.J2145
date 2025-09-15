@@ -1,0 +1,6 @@
+# To run a forecast for 8 observations of the pulsar J2145-0750, whose parameters and ephemeris are in this directory:
+
+python ../forecast/forecast_pulsar.py \
+--dates "60500,60578.3,60656.5,60734.8,60813.1,60891.3,60969.6,61047.9" \
+--output "J2145-0750_forecast.pmpar.in" \
+--targetinfo "J2145-0750_info.txt"
