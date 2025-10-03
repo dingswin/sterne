@@ -1,4 +1,4 @@
-##!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
@@ -13,6 +13,13 @@ file specified with `--targetinfo`. A parameter must be specified in only one
 location; providing it in both the file and on the command line will result
 in an error.
 
+This script produces two output files:
+1.  The final pmpar.in file where statistical and systematic uncertainties
+    have been added in quadrature.
+2.  A preliminary file with the suffix '.preliminary' containing only the
+    statistical position uncertainties.
+
+
 Dependencies:
 - numpy
 - astropy
@@ -23,8 +30,8 @@ Dependencies:
 
 Example Usage:
 ----------------
-# 1. Provide all info on the command line. The reference epoch will default to 60000.0. 
-#    pmra, pmdec, parallax, unc_ra, and unc_dec will default to 0.0, 0.0, 1.0, 0.1, and 0.2 respectively.
+# 1. Provide all info on the command line. The reference epoch will default to 60000.0.
+#    pmra, pmdec, parallax, and uncertainties will use their default values.
 python forecast_pulsar.py \
     --dates dates.txt \
     --ref-ra "10:12:13.14" \
@@ -88,8 +95,9 @@ def parse_targetinfo_file(filepath):
     type_map = {
         'ref_ra': str, 'ref_dec': str, 'ref_epoch': float,
         'pm_ra': float, 'pm_dec': float, 'parallax': float,
-        'unc_ra': float, 'unc_dec': float, 'parfile': str,
-        'inclination': float, 'omega_asc': float
+        'unc_ra_statistical': float, 'unc_dec_statistical': float,
+        'unc_ra_systematic': float, 'unc_dec_systematic': float,
+        'parfile': str, 'inclination': float, 'omega_asc': float
     }
 
     with open(filepath, 'r') as f:
@@ -125,26 +133,30 @@ def predict_pulsar_positions(
     pm_ra=0.0,
     pm_dec=0.0,
     parallax=1.0,
-    unc_ra=0.1,
-    unc_dec=0.2,
+    unc_ra_statistical=0.1,
+    unc_dec_statistical=0.2,
+    unc_ra_systematic=0.2,
+    unc_dec_systematic=0.3,
     parfile=None,
     inclination=None,
     omega_asc=None,
 ):
     """
-    Predicts pulsar positions and writes them to a pmpar.in formatted file.
+    Predicts pulsar positions and writes them to two pmpar.in formatted files.
 
     Args:
         dates (list of float): List of MJD dates to predict positions for.
         ref_ra_str (str): Reference Right Ascension in 'hh:mm:ss.s' format.
         ref_dec_str (str): Reference Declination in 'dd:mm:ss.s' format.
         ref_epoch (float): Reference epoch in MJD.
-        output_file (str): Path to the output file.
+        output_file (str): Path to the base output file for the final results.
         pm_ra (float, optional): Proper motion in RA (mas/yr). Defaults to 0.0.
         pm_dec (float, optional): Proper motion in Dec (mas/yr). Defaults to 0.0.
         parallax (float, optional): Parallax in mas. Defaults to 1.0.
-        unc_ra (float, optional): On-sky position uncertainty in RA (mas). Defaults to 0.1.
-        unc_dec (float, optional): On-sky position uncertainty in Dec (mas). Defaults to 0.2.
+        unc_ra_statistical (float, optional): Statistical on-sky position uncertainty in RA (mas). Defaults to 0.1.
+        unc_dec_statistical (float, optional): Statistical on-sky position uncertainty in Dec (mas). Defaults to 0.2.
+        unc_ra_systematic (float, optional): Systematic on-sky position uncertainty in RA (mas). Defaults to 0.2.
+        unc_dec_systematic (float, optional): Systematic on-sky position uncertainty in Dec (mas). Defaults to 0.3.
         parfile (str, optional): Path to the pulsar ephemeris (.par) file. Defaults to None.
         inclination (float, optional): Inclination angle (degrees). Required if parfile is used. Defaults to None.
         omega_asc (float, optional): Position angle of ascending node (degrees). Required if parfile is used. Defaults to None.
@@ -161,13 +173,22 @@ def predict_pulsar_positions(
     ref_coord = SkyCoord(ref_ra_str, ref_dec_str, unit=(u.hourangle, u.deg), frame='icrs')
     ref_ra_rad = ref_coord.ra.rad
     ref_dec_rad = ref_coord.dec.rad
-
-    # --- 2. Convert Uncertainties to Output Units ---
-    unc_dec_arcsec = unc_dec / 1000.0
+    
     cos_dec = np.cos(ref_dec_rad)
     if cos_dec == 0:
         raise ValueError("Cannot calculate RA uncertainty at the celestial pole (Dec = +/- 90 degrees).")
-    unc_ra_sec_time = (unc_ra / cos_dec) / 15000.0
+
+    # --- 2. Calculate and Convert Uncertainties ---
+    # Statistical uncertainties for the preliminary file
+    unc_dec_stat_arcsec = unc_dec_statistical / 1000.0
+    unc_ra_stat_sec_time = (unc_ra_statistical / cos_dec) / 15000.0
+
+    # Total uncertainties (statistical + systematic in quadrature) for the final file
+    total_unc_ra_mas = np.sqrt(unc_ra_statistical**2 + unc_ra_systematic**2)
+    total_unc_dec_mas = np.sqrt(unc_dec_statistical**2 + unc_dec_systematic**2)
+
+    total_unc_dec_arcsec = total_unc_dec_mas / 1000.0
+    total_unc_ra_sec_time = (total_unc_ra_mas / cos_dec) / 15000.0
 
     # Prepare timing parameter dictionary for reflex motion
     dict_timing = {}
@@ -194,33 +215,46 @@ def predict_pulsar_positions(
         )
         predicted_positions.append((epoch, ra_pred_rad, dec_pred_rad))
 
-    # --- 4. Format and Write Output ---
-    with open(output_file, "w") as f:
-        # Define aligned header and data formats
-        header_fmt = "# {:<13s} {:<18s} {:<13s} {:<18s} {:<12s}\n"
-        data_fmt = "{:<15.4f} {:<18s} {:<13.7f} {:<18s} {:<12.6f}\n"
+    # --- 4. Format and Write Output Files ---
+    
+    # Define aligned header and data formats
+    header_fmt = "# {:<13s} {:<18s} {:<13s} {:<18s} {:<12s}\n"
+    data_fmt = "{:<15.4f} {:<18s} {:<13.7f} {:<18s} {:<12.6f}\n"
 
-        f.write("# Predicted pulsar positions in pmpar.in format\n")
+    # --- File 1: Preliminary (Statistical Uncertainties Only) ---
+    output_file_prelim = output_file + ".preliminary"
+    with open(output_file_prelim, "w") as f:
+        f.write("# Predicted pulsar positions in pmpar.in format (PRELIMINARY - statistical errors only)\n")
         f.write(header_fmt.format("Epoch (MJD)", "RA (hh:mm:ss)", "errRA (s)", "DEC (dd:mm:ss)", "errDEC (as)"))
 
         for epoch_mjd, ra_rad, dec_rad in predicted_positions:
             pred_coord = SkyCoord(ra=ra_rad*u.rad, dec=dec_rad*u.rad, frame='icrs')
 
-            # Manually format coordinate strings to get required precision on the seconds component
-            h, m, s_ra = pred_coord.ra.hms
-            ra_out_str = f"{int(h):02d}:{int(m):02d}:{s_ra:010.7f}"
-
-            d, m, s_dec = pred_coord.dec.dms
-            sign = '+' if d >= 0 else '-'
-            d = abs(d)
-            dec_out_str = f"{sign}{int(d):02d}:{int(m):02d}:{abs(s_dec):09.6f}"
+            ra_out_str = pred_coord.ra.to_string(unit=u.hourangle, sep=':', precision=7, pad=True)
+            dec_out_str = pred_coord.dec.to_string(unit=u.deg, sep=':', precision=6, alwayssign=True, pad=True)
             
-            # Write the formatted line using MJD and the new precision
             f.write(
-                data_fmt.format(epoch_mjd, ra_out_str, unc_ra_sec_time, dec_out_str, unc_dec_arcsec)
+                data_fmt.format(epoch_mjd, ra_out_str, unc_ra_stat_sec_time, dec_out_str, unc_dec_stat_arcsec)
             )
 
-    print(f"✅ Successfully wrote predicted positions to '{output_file}'.")
+    print(f"✅ Successfully wrote preliminary positions to '{output_file_prelim}'.")
+
+    # --- File 2: Final (Total Uncertainties) ---
+    with open(output_file, "w") as f:
+        f.write("# Predicted pulsar positions in pmpar.in format (FINAL - total errors: statistical + systematic)\n")
+        f.write(header_fmt.format("Epoch (MJD)", "RA (hh:mm:ss)", "errRA (s)", "DEC (dd:mm:ss)", "errDEC (as)"))
+
+        for epoch_mjd, ra_rad, dec_rad in predicted_positions:
+            pred_coord = SkyCoord(ra=ra_rad*u.rad, dec=dec_rad*u.rad, frame='icrs')
+
+            ra_out_str = pred_coord.ra.to_string(unit=u.hourangle, sep=':', precision=7, pad=True)
+            dec_out_str = pred_coord.dec.to_string(unit=u.deg, sep=':', precision=6, alwayssign=True, pad=True)
+
+            f.write(
+                data_fmt.format(epoch_mjd, ra_out_str, total_unc_ra_sec_time, dec_out_str, total_unc_dec_arcsec)
+            )
+            
+    print(f"✅ Successfully wrote final positions to '{output_file}'.")
 
 
 def main():
@@ -240,7 +274,8 @@ variable for accurate parallax calculations.
                         help="A list of dates in MJD for which to predict positions.\n"
                              "Can be a comma-separated string or a path to a file.")
     parser.add_argument('--output', required=True, type=str,
-                        help="Name of the output file (e.g., 'predicted.pmpar.in').")
+                        help="Name of the final output file (e.g., 'predicted.pmpar.in').\n"
+                             "A second file with a '.preliminary' suffix will also be created.")
     parser.add_argument('--targetinfo', type=str, default=None,
                         help="Path to a text file containing pulsar parameters (key = value format).")
     
@@ -252,8 +287,10 @@ variable for accurate parallax calculations.
     arg_group.add_argument('--pm-ra', type=float, help="Proper motion in RA (mas/yr). Default: 0.0")
     arg_group.add_argument('--pm-dec', type=float, help="Proper motion in Dec (mas/yr). Default: 0.0")
     arg_group.add_argument('--parallax', type=float, help="Parallax in mas. Default: 1.0")
-    arg_group.add_argument('--unc-ra', type=float, help="On-sky position uncertainty in RA (mas). Default: 0.1")
-    arg_group.add_argument('--unc-dec', type=float, help="On-sky position uncertainty in Dec (mas). Default: 0.2")
+    arg_group.add_argument('--unc-ra-statistical', type=float, help="Statistical on-sky position uncertainty in RA (mas). Default: 0.1")
+    arg_group.add_argument('--unc-dec-statistical', type=float, help="Statistical on-sky position uncertainty in Dec (mas). Default: 0.2")
+    arg_group.add_argument('--unc-ra-systematic', type=float, help="Systematic on-sky position uncertainty in RA (mas). Default: 0.2")
+    arg_group.add_argument('--unc-dec-systematic', type=float, help="Systematic on-sky position uncertainty in Dec (mas). Default: 0.3")
     arg_group.add_argument('--parfile', type=str, help="Path to the pulsar ephemeris (.par) file.")
     arg_group.add_argument('--inclination', type=float, help="Orbital inclination angle (degrees). Required if --parfile is used.")
     arg_group.add_argument('--omega-asc', type=float, help="Position angle of the ascending node (Omega) in degrees. Required if --parfile is used.")
@@ -285,7 +322,12 @@ variable for accurate parallax calculations.
             final_params[key] = value
 
     # Set defaults for optional params that were not provided in either location
-    defaults = {'pm_ra': 0.0, 'pm_dec': 0.0, 'parallax': 1.0, 'unc_ra': 0.1, 'unc_dec': 0.2, 'ref_epoch': 60000.0}
+    defaults = {
+        'pm_ra': 0.0, 'pm_dec': 0.0, 'parallax': 1.0, 
+        'unc_ra_statistical': 0.1, 'unc_dec_statistical': 0.2, 
+        'unc_ra_systematic': 0.2, 'unc_dec_systematic': 0.3, 
+        'ref_epoch': 60000.0
+    }
     for key, default_val in defaults.items():
         if final_params.get(key) is None:
             final_params[key] = default_val
@@ -315,8 +357,10 @@ variable for accurate parallax calculations.
             pm_ra=final_params['pm_ra'],
             pm_dec=final_params['pm_dec'],
             parallax=final_params['parallax'],
-            unc_ra=final_params['unc_ra'],
-            unc_dec=final_params['unc_dec'],
+            unc_ra_statistical=final_params['unc_ra_statistical'],
+            unc_dec_statistical=final_params['unc_dec_statistical'],
+            unc_ra_systematic=final_params['unc_ra_systematic'],
+            unc_dec_systematic=final_params['unc_dec_systematic'],
             parfile=final_params.get('parfile'),
             inclination=final_params.get('inclination'),
             omega_asc=final_params.get('omega_asc'),
