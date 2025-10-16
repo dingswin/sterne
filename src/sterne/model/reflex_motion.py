@@ -4,11 +4,12 @@ written in python3 by Hao Ding.
 """
 import numpy as np
 import astropy.units as u
-from astropy import constants
+from astropy import constants as const
 import os, sys
 from sterne import others
 from psrqpy import QueryATNF
 from shutil import which
+
 
 def generate_parfile(pulsar):
     """
@@ -74,7 +75,7 @@ def read_parfile(parfile):
                 else:
                     dict_parameter[parameters[i]] = float(alist[1])
     dict_parameter['pb'] *= u.d
-    dict_parameter['a1'] *= constants.c * u.s
+    dict_parameter['a1'] *= const.c * u.s
     dict_parameter['t0'] *= u.d
     dict_parameter['om'] *= u.deg
     try:
@@ -86,7 +87,7 @@ def read_parfile(parfile):
     except KeyError:
         pass
     try:
-        dict_parameter['a1dot'] *= constants.c
+        dict_parameter['a1dot'] *= const.c
     except KeyError:
         pass
     try:
@@ -103,7 +104,7 @@ def read_parfile(parfile):
         dict_parameter['decj'] = decj
     return dict_parameter
 
-def solve_u(e, c, precision=1e-5):
+def __solve_u(e, c, precision=1e-5):
     """
     Solve the equation
     u - e * sin(u) = c
@@ -125,7 +126,7 @@ def solve_u(e, c, precision=1e-5):
         iterations += 1
     return x, iterations
 
-def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
+def __reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     """
     Following mathematical formalism detailed in Eqn 55 through 63 
         in the Tempo2 paper (ref1), except that the sign in Eqn 61 appears to be a typo
@@ -137,6 +138,7 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     2. Two differently formulated A_u in Eqn 57 and Eqn 58 is considered the same.
     3. Relativistic deformations of the eccentricity, given by Eqn 59 and 60, is
         not taken into account.
+    4. note that Eq. 58 has a typo, in the power-law index 2 (supposed to 0.5 according to Eq. 17a of Damour and Deruelle, 1986).
 
 
 
@@ -189,7 +191,7 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     #n = 2*np.pi/Pb0 + np.pi*Pbdot*(epoch-T0)/(Pb0**2) #angular velocity
     u1 = solve_u(e, (n*(epoch-T0)).value)[0] #u1 stands for u, not to clash with u=astropy.units
     #u1 *= u.rad
-    A_u = u.rad * 2* np.arctan(((1+e)/(1-e))**2 * np.tan(u1/2))
+    A_u = u.rad * 2* np.arctan(((1+e)/(1-e))**0.5 * np.tan(u1/2))
     k = omdot/n
     omega = omega0 + k * A_u
     theta = omega + A_u
@@ -213,6 +215,101 @@ def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     dRA = (b.item(0,0)/np.cos(dec)).value #that can be directly added to RA
     dDEC = b.item(1,0)
     return np.array([dRA, dDEC]) #in mas
+    
+def solve_u(e, M, tol=1e-12, maxiter=50):
+    """
+    Solve Kepler's equation: u - e*sin(u) = M
+    via Newton–Raphson (radians in/out).
+    """
+    # initial guess: M + e*sin(M)
+    U = M + e * np.sin(M)
+    for _ in range(maxiter):
+        f   = U - e*np.sin(U) - M
+        fp  = 1 - e*np.cos(U)
+        du  = -f/fp
+        U  += du
+        if abs(du) < tol:
+            break
+    return U
+
+def reflex_motion(epoch, DoP, incl, Om_asc, px):
+    """
+    Compute VLBI reflex‐motion offsets (dRA, dDEC) in mas.
+
+    epoch : float (MJD)
+    DoP    : dict of orbital parameters with astropy units
+    incl   : inclination angle (rad)
+    Om_asc : longitude of ascending node (deg)
+    px     : parallax (mas)
+    """
+    # unpack & units
+    incl   = incl * u.rad
+    Om_asc = Om_asc * u.deg
+    e      = DoP['ecc']
+    T0     = DoP['t0']
+    Pb0    = DoP['pb']
+    omega0 = DoP['om']
+    a1_0   = DoP['a1']
+    decj   = DoP['decj']
+    omdot  = DoP.get('omdot', 0*u.rad/u.s).to(u.rad/u.s)
+    pbdot  = DoP.get('pbdot', 0)       # in s/s
+    xpbdot = DoP.get('xpbdot', 0)      # in s/s
+    adot   = DoP.get('a1dot', None)    # in m/s
+
+    # time since periastron, in seconds
+    dt     = (epoch*u.d - T0).to(u.s).value
+    Pb_s   = Pb0.to(u.s).value
+
+    # orbits & phase (with pbdot+xpbdot correction)
+    orbits  = dt/Pb_s - 0.5*(pbdot + xpbdot)*(dt/Pb_s)**2
+    norbits = np.floor(orbits)
+    phase   = 2*np.pi*(orbits - norbits)
+
+    # eccentric anomaly u (rad)
+    U = solve_u(e, phase)
+
+    # true anomaly shift A_e(u)
+    Ae = 2 * np.arctan(np.sqrt((1+e)/(1-e)) * np.tan(U/2))
+
+    # periastron advance k = omdot / n
+    n  = 2*np.pi / Pb_s
+    k  = omdot.value / n
+
+    # total argument of latitude
+    omega = omega0.to(u.rad).value + k*Ae
+    theta = omega + Ae
+
+    # time‐varying semi‐major axis
+    if adot is not None:
+        a1 = a1_0 + adot * (epoch*u.d - T0)
+    else:
+        a1 = a1_0
+
+    # orbital radius in AU
+    r  = a1 * (1 - e*np.cos(U))
+    r_AU = r.to(u.AU).value
+
+    # sky‐plane offset (mas)
+    off = r_AU * px
+
+    # 3D→sky rotation
+    incl_rad = incl.to(u.rad).value
+    Om_rad   = Om_asc.to(u.rad).value
+    R1 = np.array([[ np.sin(Om_rad), -np.cos(Om_rad), 0],
+                   [ np.cos(Om_rad),  np.sin(Om_rad), 0],
+                   [            0   ,             0   , 1]])
+    R2 = np.array([[1,             0             ,           0           ],
+                   [0, -np.cos(incl_rad), -np.sin(incl_rad)],
+                   [0,  np.sin(incl_rad), -np.cos(incl_rad)]])
+    vec = off * np.array([np.cos(theta), np.sin(theta), 0])
+    b   = R1.dot(R2.dot(vec))
+
+    # proper motion correction in RA
+    dRA  = b[0] / np.cos(decj.to(u.rad).value)
+    dDEC = b[1]
+
+    return np.array([dRA, dDEC])  # in mas
+
 
 
 
@@ -242,7 +339,7 @@ class reflex_motion_detectability:
         rcs : float
             reduced chi-square.
         """
-        a1 *= constants.c * u.s
+        a1 *= const.c * u.s
         a1_AU = a1.to(u.AU).value
         eta_orb = 2 * a1_AU * px / err_px / np.sqrt(rcs)
         return eta_orb
@@ -286,3 +383,5 @@ class reflex_motion_detectability:
         
         eta_orb = self.calculate_eta_orb(a1, px, err_px, rcs)
         return eta_orb
+
+
