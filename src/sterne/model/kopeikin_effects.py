@@ -34,6 +34,7 @@ def a1dot_pm_formalisim(a1, inc, mu_a, mu_d, om_asc):
         a1dot due to inclination variation caused by proper motion.
         Here, a1dot denotes time derivative of a1.
     """
+    a1 *= u.lightsecond
     inc *= u.rad
     om_asc *= u.deg
     mu_a *= u.mas/u.yr
@@ -42,7 +43,8 @@ def a1dot_pm_formalisim(a1, inc, mu_a, mu_d, om_asc):
     theta_mu = np.arctan2(mu_a, mu_d) ## position angle of mu (east of north)
     a1dot_pm = mu * np.sin(theta_mu - om_asc) / np.tan(inc)
     a1dot_pm *= a1
-    return 1e0 * a1dot_pm.to(u.rad/u.s).value ## in 1e0 lt-sec/sec
+    #return 1e0 * a1dot_pm.to(u.rad/u.s).value ## in 1e0 lt-sec/sec
+    return a1dot_pm.to(u.rad * u.lightsecond/u.s).value ## in lt-sec/sec
 
 def calculate_a1dot_pm(list_of_dict_timing, parameters_dict):
     """
@@ -58,7 +60,7 @@ def calculate_a1dot_pm(list_of_dict_timing, parameters_dict):
             FP = _positions.filter_dictionary_of_parameter_with_index(parameters_dict, i)
             Ps = list(FP.keys())
             Ps.sort()
-            a1 = (LoD_timing[i]['a1'] / constants.c / u.s).value ## convert to lt-sec
+            a1 = LoD_timing[i]['a1'].to(u.lightsecond).value ## convert to lt-sec
             modeled_a1dot = a1dot_pm_formalisim(a1, FP[Ps[3]], FP[Ps[4]], FP[Ps[5]], FP[Ps[6]])
             list_of_modeled_a1dot = np.append(list_of_modeled_a1dot, modeled_a1dot)
 
