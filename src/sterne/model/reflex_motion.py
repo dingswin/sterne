@@ -209,15 +209,9 @@ def __reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     matr1 = np.mat([[np.sin(Om_asc), -np.cos(Om_asc), 0],
                     [np.cos(Om_asc), np.sin(Om_asc), 0],
                     [0, 0, 1]])
-    #matr1 = np.mat([[np.cos(Om_asc), -np.sin(Om_asc), 0],
-    #                [np.sin(Om_asc), np.cos(Om_asc), 0],
-    #                [0, 0, 1]])
     matr2 = np.mat([[1, 0, 0],
                     [0, -np.cos(incl), -np.sin(incl)],
                     [0, np.sin(incl), -np.cos(incl)]])
-    #matr2 = np.mat([[1, 0, 0],
-    #                [0, np.cos(incl), -np.sin(incl)],
-    #                [0, np.sin(incl), np.cos(incl)]])
     matr3 = np.mat([[offset*np.cos(theta)],
                     [offset*np.sin(theta)],
                     [0]])
@@ -244,14 +238,56 @@ def solve_u(e, M, tol=1e-12, maxiter=50):
 
 def reflex_motion(epoch, DoP, incl, Om_asc, px):
     """
-    Compute VLBI reflex‐motion offsets (dRA, dDEC) in mas.
+    Following mathematical formalism detailed in Eqn 55 through 63 
+        in the Tempo2 paper (ref1), except that 1) the sign in Eqn 61 appears to be a typo
+        and has been corrected, 2) the power-law index in Eq. 58 should be 0.5 in stead of 2.
 
-    epoch : float (MJD)
-    DoP    : dict of orbital parameters with astropy units
-    incl   : inclination angle (rad)
-    Om_asc : longitude of ascending node (deg)
-    px     : parallax (mas)
+    Caveats
+    -------
+    1. Time derivative of eccentricity is not taken into account.
+    2. Two differently formulated A_u in Eqn 57 and Eqn 58 is considered the same.
+    3. Relativistic deformations of the eccentricity, given by Eqn 59 and 60, is
+        not taken into account.
+    4. note that Eq. 58 has a typo, in the power-law index 2 (supposed to 0.5 according to Eq. 17a of Damour and Deruelle, 1986).
+
+
+
+    Input paramters
+    ---------------
+    epoch : float
+        in MJD.
+    dict_of_orbital_parameters : dict
+        See the function read_parfile()
+    incl : float
+        Inclination angle (rad).
+    Om_asc : float
+        Position angle of ascending node (deg).
+    px : float
+        Parallax (mas).
+
+    Return parameters
+    -----------------
+    dRA : float
+        Reflex-motion-related right ascension offset (in mas), corresponding to the vector e1
+        in Eqn 54.
+    dDEC : float
+        Reflex-motion-related declination offset (in mas), corresponding to the vector e2
+        in Eqn 54.
+
+    Reference
+    ---------
+    1. Edwards, Hobbs and Manchester 2006 (2006MNRAS.372.1549E). 
     """
+    DoP = dict_of_orbital_parameters
+    epoch *= u.d
+    incl *= u.rad
+    Om_asc *= u.deg
+    e, T0, Pb0, omega0, a0, dec = DoP['ecc'], DoP['t0'],\
+        DoP['pb'], DoP['om'], DoP['a1'], DoP['decj']
+    try:
+        omdot = DoP['omdot']
+    except KeyError:
+        omdot = 0 * u.deg/u.yr
     # unpack & units
     incl   = incl * u.rad
     Om_asc = Om_asc * u.deg
