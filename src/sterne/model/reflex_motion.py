@@ -236,7 +236,7 @@ def solve_u(e, M, tol=1e-12, maxiter=50):
             break
     return U
 
-def reflex_motion(epoch, DoP, incl, Om_asc, px):
+def reflex_motion(epoch, dict_of_orbital_parameters, incl, Om_asc, px):
     """
     Following mathematical formalism detailed in Eqn 55 through 63 
         in the Tempo2 paper (ref1), except that 1) the sign in Eqn 61 appears to be a typo
@@ -289,8 +289,6 @@ def reflex_motion(epoch, DoP, incl, Om_asc, px):
     except KeyError:
         omdot = 0 * u.deg/u.yr
     # unpack & units
-    incl   = incl * u.rad
-    Om_asc = Om_asc * u.deg
     e      = DoP['ecc']
     T0     = DoP['t0']
     Pb0    = DoP['pb']
@@ -303,7 +301,8 @@ def reflex_motion(epoch, DoP, incl, Om_asc, px):
     adot   = DoP.get('a1dot', None)    # in m/s
 
     # time since periastron, in seconds
-    dt     = (epoch*u.d - T0).to(u.s).value
+    #dt     = (epoch*u.d - T0).to(u.s).value
+    dt     = (epoch - T0).to(u.s).value
     Pb_s   = Pb0.to(u.s).value
 
     # orbits & phase (with pbdot+xpbdot correction)
@@ -327,7 +326,7 @@ def reflex_motion(epoch, DoP, incl, Om_asc, px):
 
     # time‐varying semi‐major axis
     if adot is not None:
-        a1 = a1_0 + adot * (epoch*u.d - T0)
+        a1 = a1_0 + adot * (epoch - T0)
     else:
         a1 = a1_0
 
