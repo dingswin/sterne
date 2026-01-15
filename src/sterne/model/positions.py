@@ -300,10 +300,18 @@ def parallax_related_position_offset_from_the_barycentric_frame(epoch, ra, dec, 
     if tempo2_dir == None:
         print('\nTEMPO2 not installed or its environment variable unset; aborting...') ## it does not need to be installed, but the T2runtime folder is needed.
         sys.exit(1)
-    ephem_open(os.path.join(os.getenv("TEMPO2"), "T2runtime/ephemeris/DE421.1950.2050")) ## load in the OSX64 environment !!
+
+    t2ephem = os.path.join(os.getenv("TEMPO2"), "T2runtime/ephemeris/DE421.1950.2050")
+    if not os.path.exists(t2ephem):
+        t2ephem = os.path.join(os.getenv("TEMPO2"), "ephemeris/DE421.1950.2050")
+        if not os.path.exists(t2ephem):
+            print("Can't find the DE421 ephemeris!")
+            sys.exit()
+    ephem_open(t2ephem)
+
     # This is the Earth position in X, Y, Z (AU) in ICRS wrt SSB 
     X, Y, Z = solsys.solarsystem(epoch+2400000.5, 3, 0)[0]  
-    #print(X,Y,Z)
+
     # Following is from Astronomical Almanac Explanatory Supplement p 125-126
     dRA = px * (X * np.sin(ra) - Y * np.cos(ra)) / np.cos(dec) #in mas; here, np.cos(dec) has been divided, to be added to ra_rad
     dDEC = px * (X * np.cos(ra) * np.sin(dec) + Y * np.sin(ra) * np.sin(dec) - Z * np.cos(dec)) #in mas

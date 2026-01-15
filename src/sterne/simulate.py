@@ -12,8 +12,239 @@ import os, sys
 from sterne import others
 from astropy.table import Table
 from sterne.model import kopeikin_effects, reflex_motion
-from sterne.model.positions import positions, filter_dictionary_of_parameter_with_index
+from sterne.model.positions import positions, position, filter_dictionary_of_parameter_with_index, parallax_related_position_offset_from_the_barycentric_frame
 from sterne import priors as _priors
+
+class Model:
+    """
+    A class to hold the model parameters (median values) and calculate astrometric 
+    and reflex motion.
+
+    Attributes
+    ----------
+    refepoch : float
+        Reference epoch in MJD.
+    ra : float
+        Reference Right Ascension in radians.
+    dec : float
+        Reference Declination in radians.
+    mu_a : float
+        Proper motion in RA in mas/yr.
+    mu_d : float
+        Proper motion in Dec in mas/yr.
+    px : float
+        Parallax in mas.
+    incl : float
+        Orbital inclination in radians (if fitted/provided).
+    om_asc : float
+        Longitude of ascending node in degrees (if fitted/provided).
+    dict_timing : dict
+        Dictionary of orbital parameters (from parfile).
+    """
+
+    def __init__(self, dict_median, dict_timing, refepoch, index=0):
+        """
+        Parameters
+        ----------
+        dict_median : dict
+            Dictionary of median values from Bayesian inference (output of 
+            make_a_summary_of_bayesian_inference). keys are like 'ra_0', 'px_0'.
+        dict_timing : dict
+            Dictionary of orbital parameters (usually from reading the parfile).
+            Can be empty {} if no binary motion is modeled.
+        refepoch : float
+            Reference epoch in MJD.
+        index : int, optional
+            The index of the pmparin/source to filter parameters for (default is 0).
+            Used to map specific keys (e.g., 'ra_0') to generic attributes (e.g., 'ra').
+        """
+        self.refepoch = refepoch
+        self.dict_timing = dict_timing
+        
+        # Filter parameters for this specific index using existing sterne utility
+        # -999 indicates the parameter was not fitted/found.
+        self.parameters = filter_dictionary_of_parameter_with_index(dict_median, index)
+        print(dict_median.keys(), self.parameters.keys())
+        
+        # Astrometric Parameters
+        self.ra = self.parameters.get('ra_{0}'.format(index))       # rad
+        self.dec = self.parameters.get('dec_{0}'.format(index))     # rad
+        self.mu_a = self.parameters.get('mu_a_{0}'.format(index))   # mas/yr
+        self.mu_d = self.parameters.get('mu_d_{0}'.format(index))   # mas/yr
+        self.px = self.parameters.get('px_{0}'.format(index))       # mas
+        print(self.ra, self.dec, self.mu_a, self.mu_d, self.px)
+        
+        # Orbital Geometry Parameters
+        self.incl = self.parameters.get('incl_{0}'.format(index))     # rad
+        self.om_asc = self.parameters.get('om_asc_{0}'.format(index)) # deg
+
+    def calculate_reflex_motion(self, epoch):
+        """
+        Calculate reflex motion vector at a specific epoch.
+        
+        Parameters
+        ----------
+        epoch : float
+            Epoch in MJD.
+            
+        Returns
+        -------
+        np.array
+            [dRA, dDEC] in mas. Returns [0,0] if orbital parameters are missing.
+        """
+        # Ensure we have valid orbital geometry and timing parameters
+        valid_orbit = (self.dict_timing and 
+                       self.incl is not None and self.incl != -999 and 
+                       self.om_asc is not None and self.om_asc != -999)
+        
+        if valid_orbit:
+            # Handle px: if px was not fitted (-999), assume 0 for reflex calc or passed value
+            px_val = self.px if self.px != -999 else 0.0
+            
+            return reflex_motion.reflex_motion(
+                epoch, 
+                self.dict_timing, 
+                self.incl, 
+                self.om_asc, 
+                px_val
+            )
+        else:
+            return np.array([0.0, 0.0])
+
+    def get_position_at_epoch(self, epoch):
+        """
+        Calculate the full position (RA, Dec) at a given epoch including 
+        Proper Motion, Parallax, and Reflex Motion.
+        
+        Parameters
+        ----------
+        epoch : float
+            Epoch in MJD.
+            
+        Returns
+        -------
+        tuple
+            (RA, Dec) in radians (geocentric).
+        """
+        # Utilizes the existing 'positions' function from sterne.model.positions
+        # imported in simulate.py
+        ra_model, dec_model = positions(
+            self.refepoch, 
+            epoch, 
+            self.dec, 
+            self.incl, 
+            self.mu_a, 
+            self.mu_d, 
+            self.om_asc, 
+            self.px, 
+            self.ra, 
+            self.dict_timing
+        )
+        return ra_model, dec_model
+
+
+def write_observation_summary(model_obj, obs_dict, output_filename):
+    """
+    Writes a fixed-width table summarizing observations and model offsets.
+
+    Parameters
+    ----------
+    model_obj : Model
+        The Model instance containing best-fit median parameters.
+    obs_dict : dict
+        The dictionary containing observation data for this specific source 
+        (one element from list_of_dict_VLBI).
+    output_filename : str
+        The path to save the text file.
+    """
+    
+    # Extract observation data
+    epochs = obs_dict['epochs']
+    n_obs = len(epochs)
+    
+    # VLBI data is stored as [RA_1...RA_n, Dec_1...Dec_n] in radians
+    #
+    vlbi_ras_rad = obs_dict['radecs'][:n_obs]
+    vlbi_decs_rad = obs_dict['radecs'][n_obs:]
+    
+    # Errors are stored similarly in radians
+    #
+    vlbi_err_ras_rad = obs_dict['errs'][:n_obs]
+    vlbi_err_decs_rad = obs_dict['errs'][n_obs:]
+
+    # Define column widths and header
+    preamble = "Model reference epoch: {0}\n".format(model_obj.refepoch)
+    preamble = preamble + "Model reference right ascension (radians): {0}\n".format(model_obj.ra)
+    preamble = preamble + "Model reference declination (radians): {0}\n".format(model_obj.dec)
+    preamble = preamble + "Model proper motion R.A. (mas/yr): {0}\n".format(model_obj.mu_a)
+    preamble = preamble + "Model proper motion Dec. (mas/yr): {0}\n".format(model_obj.mu_d)
+    preamble = preamble + "Model parallax (mas): {0}\n".format(model_obj.px)
+    preamble = preamble + "Model binary inclination (degrees): {0}\n".format(model_obj.incl)
+    preamble = preamble + "Model binary ascending node longitude (degrees): {0}\n".format(model_obj.om_asc)
+    header = (
+        f"{'MJD':<12} {'Date':<12} "
+        f"{'RA_deg':<15} {'ErrRA_ms':<12} "
+        f"{'Dec_deg':<15} {'ErrDec_mas':<12} "
+        f"{'Px_RA_mas':<12} {'Px_Dec_mas':<12} "
+        f"{'Orb_RA_mas':<12} {'Orb_Dec_mas':<12}"
+    )
+
+    with open(output_filename, 'w') as f:
+        f.write(preamble + "\n")
+        f.write(header + "\n")
+        f.write("-" * len(header) + "\n")
+
+        for i in range(n_obs):
+            mjd = epochs[i]
+            
+            # 1 & 2: Dates
+            # Convert MJD to YYYY-MM-DD
+            date_str = Time(mjd, format='mjd').iso.split(' ')[0]
+
+            # 3: VLBI RA (convert rad to deg)
+            ra_deg = np.degrees(vlbi_ras_rad[i])
+
+            # 4: VLBI RA Uncertainty (milliseconds)
+            # rad -> deg -> hours -> seconds -> ms
+            # Factor: (180/pi) / 15 * 3600 * 1000
+            ra_err_ms = vlbi_err_ras_rad[i] * (180.0 / np.pi) / 15.0 * 3.6e6
+
+            # 5: VLBI Dec (convert rad to deg)
+            dec_deg = np.degrees(vlbi_decs_rad[i])
+
+            # 6: VLBI Dec Uncertainty (milliarcseconds)
+            # rad -> deg -> arcsec -> mas
+            # Factor: (180/pi) * 3600 * 1000
+            dec_err_mas = vlbi_err_decs_rad[i] * (180.0 / np.pi) * 3.6e6
+
+            # 7 & 8: Parallax Offsets (mas)
+            # Uses sterne.model.positions
+            # Note: positions.py functions require radians for input RA/Dec
+            print(mjd, model_obj.ra, model_obj.dec, model_obj.px)
+            px_offsets = parallax_related_position_offset_from_the_barycentric_frame(
+                mjd, model_obj.ra, model_obj.dec, model_obj.px
+            )
+            px_ra_offset = px_offsets[0]
+            px_dec_offset = px_offsets[1]
+
+            # 9 & 10: Orbital Model Offsets (mas)
+            # Uses the method defined in the new Model class
+            orb_offsets = model_obj.calculate_reflex_motion(mjd)
+            orb_ra_offset = orb_offsets[0]
+            orb_dec_offset = orb_offsets[1]
+
+            # Write row
+            row = (
+                f"{mjd:<12.5f} {date_str:<12} "
+                f"{ra_deg:<15.9f} {ra_err_ms:<12.4f} "
+                f"{dec_deg:<15.9f} {dec_err_mas:<12.4f} "
+                f"{px_ra_offset:<12.4f} {px_dec_offset:<12.4f} "
+                f"{orb_ra_offset:<12.4f} {orb_dec_offset:<12.4f}"
+            )
+            f.write(row + "\n")
+
+    print(f"Summary written to {output_filename}")
+
 def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     """
     Input parameters
@@ -217,9 +448,19 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
     jsonfile = outdir + '/label_result.json' 
     result = bilby.result.read_in_result(filename=jsonfile) 
     result.save_posterior_samples(filename=saved_posteriors)
-    make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
+    dict_median, outputfile = make_a_summary_of_bayesian_inference(saved_posteriors, refepoch,\
         list_of_dict_VLBI, list_of_dict_timing, log_efac)
+
+    # Make a corner plot of the results
     result.plot_corner() ## this may fail when run in the background, therefore put in the last
+
+    # Create a Model object for each pmparin index
+    models = []
+    for i in range(len(list_of_dict_timing)):
+        # Instantiate Model with the best-fit median dictionary
+        model_obj = Model(dict_median, list_of_dict_timing[i], refepoch, index=i)
+        models.append(model_obj)
+        write_observation_summary(model_obj, list_of_dict_VLBI[i], "outdir/observation_model_summary_{0}.txt" .format(i))
 
 def create_list_of_dict_timing(parfiles):
     list_of_dict_timing = []
@@ -523,32 +764,68 @@ def dms2rad(ra, dec):
 
 def readpmparin(pmparin):
     """
+    Robust reader for pmpar.in files.
+    Skips comments/blank lines and tolerates arbitrary whitespace.
     """
-    epochs = RAs = errRAs = DECs = errDECs = np.array([])
+    epochs = []
+    RAs = []
+    errRAs = []
+    DECs = []
+    errDECs = []
+
     lines = open(pmparin).readlines()
     for line in lines:
-        #if 'epoch' in line and not line.strip().startswith('#'):
-        #    refepoch = line.split('=')[1].strip()
-        if line.count(':')==4 and (not line.strip().startswith('#')):
-            for i in range(10):
-                line = line.replace('  ', ' ')
-            epoch, RA, errRA, DEC, errDEC = line.strip().split(' ')
-            epoch = decyear2mjd(float(epoch.strip())) #in MJD
-            DEC = others.dms2deg(DEC.strip()) #in deg
-            DEC *= np.pi/180. #in rad
-            RA = others.dms2deg(RA.strip()) #in hr
-            RA *= 15*np.pi/180. #in rad
-            errRA = float(errRA.strip()) #in s
-            errRA *= 15 * np.pi/180./3600. #in rad
-            errDEC = float(errDEC.strip()) #in arcsecond
-            errDEC *= np.pi/180./3600 #in rad
+        line = line.strip()
 
-            epochs = np.append(epochs, epoch)
-            RAs = np.append(RAs, RA)
-            DECs = np.append(DECs, DEC)
-            errRAs = np.append(errRAs, errRA)
-            errDECs = np.append(errDECs, errDEC)
-    t = Table([epochs, RAs, errRAs, DECs, errDECs], names=['epoch', 'RA', 'errRA', 'DEC', 'errDEC'])
+        # Skip blank lines and comments
+        if not line or line.startswith('#'):
+            continue
+
+        precommentline = line.split('#')[0]
+        parts = precommentline.split()  # split on any whitespace
+
+        # Expect exactly 5 columns: epoch RA errRA DEC errDEC
+        if len(parts) != 5:
+            print(f"[readpmparin] Skipping malformed line: {line}")
+            continue
+
+        epoch, RA, errRA, DEC, errDEC = parts
+
+        # get the epoch
+        # decyear2mjd gives value in MJD, regardless of whether input is MJD or fractional year
+        epoch = decyear2mjd(float(epoch))
+
+        # DEC: d:m:s -> rad
+        DEC = others.dms2deg(DEC)   # deg
+        DEC *= np.pi / 180.0        # rad
+
+        # RA: h:m:s -> rad
+        RA = others.dms2deg(RA)     # hours
+        RA *= 15.0 * np.pi / 180.0  # rad
+
+        # errors
+        errRA = float(errRA)        # seconds of time
+        errRA *= 15.0 * np.pi / 180.0 / 3600.0   # -> rad
+
+        errDEC = float(errDEC)      # arcseconds
+        errDEC *= np.pi / 180.0 / 3600.0         # -> rad
+
+        #print("Parsed errRA(sec->rad), errDEC(arcsec->rad):", errRA, errDEC)
+
+        epochs.append(epoch)
+        RAs.append(RA)
+        DECs.append(DEC)
+        errRAs.append(errRA)
+        errDECs.append(errDEC)
+
+    epochs = np.array(epochs)
+    RAs = np.array(RAs)
+    errRAs = np.array(errRAs)
+    DECs = np.array(DECs)
+    errDECs = np.array(errDECs)
+
+    t = Table([epochs, RAs, errRAs, DECs, errDECs],
+              names=['epoch', 'RA', 'errRA', 'DEC', 'errDEC'])
     t.sort('epoch')
     return t
 
