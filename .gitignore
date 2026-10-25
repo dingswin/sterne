@@ -48,3 +48,6 @@ pyproject.toml
 sterne-1.0.1-py3-none-any.whl
 sterne-1.0.1.tar.gz
 dist/
+
+# pytest artifacts
+.pytest_cache/
