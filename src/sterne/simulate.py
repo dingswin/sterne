@@ -73,18 +73,29 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
             The length of a1dot_constraint needs to match len(pmparins), unless None.
         7) pmparin_preliminaries : list of str (default : None)
             A list of pmpar.in.preliminary files which record random errors. Once this is provided,
-            EFAC will be fit for. Otherwise, EFAC will not be inferred (accordingly one more 
-            degree of freedom). When pmparin_preliminaries==None, the inference for efac (and efad) would 
-            be turned off.
-            The error is corrected following the relation:
+            EFAC will be fit for in the two-component (random + systematic) error model. Otherwise
+            (None or not given), the inference for efac (and efad) is turned off by default; pass
+            stat_efac=True (see 10)) to keep efac enabled in the total-scaling mode.
+            Two EFAC modes:
+            (i) with preliminaries (two-component model):
             errs_new**2 = errs_random**2 + (efac * errs_sys)**2, where errs_random and errs_sys
             stand for random errors and systematic errors, respectively.
             When efad is requested, it is applied to errors in declinations in the following way:
             errs_new**2 = errs_random**2 + (efac * efad * errs_sys)**2.
+            (ii) stat_efac=True without preliminaries (total-scaling mode):
+            errs_new = efac * errs, scaling the TOTAL 1-D errors (the errRA and errDEC columns
+            of the pmpar.in files) directly. No random/systematic decomposition is needed.
         8) sampler: str (default : 'emcee')
             when the posterior distribution is unimodal, using 'emcee' is fine. Otherwise, use 'ptemcee' instead.
         9) log_efac : bool (default : False)
             if True, efac and efad will actually be log(efac) and log(efad).
+        10) stat_efac : bool (default : False)
+            If True and no pmparin_preliminaries are provided, efac inference is NOT turned
+            off (the shares row-1 setting is honored); efac then scales the total 1-D errors
+            of the pmpar.in files: errs_new = efac * errs (log_efac: errs_new = exp(efac)*errs).
+            This mode requires NO pmparin_preliminaries and has no effect when preliminaries
+            are given (the two-component model of 7) then applies). efad still requires
+            preliminaries and stays turned off without them.
 
     Caveats
     -------
@@ -174,15 +185,22 @@ def simulate(refepoch, initsfile, pmparin, parfile, *args, **kwargs):
         a1dot_constraints = False
 
     try:
+        stat_efac = kwargs['stat_efac']
+    except KeyError:
+        stat_efac = False
+
+    try:
         pmparin_preliminaries = kwargs['pmparin_preliminaries']
-        if len(pmparin_preliminaries) != NoP:
-            print('The number of pmpar.in.preliminary files has to\
-                match that of pmpar.in files. Exiting for now.')
-            sys.exit(1)
     except KeyError:
         pmparin_preliminaries = None
-        shares[1] = [-1] * NoP ## turn off efac inference
-        shares[2] = [-1] * NoP ## turn off efad inference
+    if pmparin_preliminaries is None: ## no preliminaries (absent or explicit None)
+        if not stat_efac:
+            shares[1] = [-1] * NoP ## turn off efac inference
+        shares[2] = [-1] * NoP ## turn off efad inference (efad needs preliminaries)
+    elif len(pmparin_preliminaries) != NoP:
+        print('The number of pmpar.in.preliminary files has to\
+            match that of pmpar.in files. Exiting for now.')
+        sys.exit(1)
 
     try:
         log_efac = kwargs['log_efac']
@@ -374,7 +392,12 @@ def adjust_errs_with_efac(VLBI_dict, parameters_dict, parameter_filter_index, lo
         efads = np.ones(2 * N)
     
     if efac != -999:
-        if log_efac:
+        if 'errs_sys' not in VLBI_dict: ## no preliminaries: efac scales the total 1-D errors
+            if log_efac:
+                errs_new_sq = (np.exp(efac) * VLBI_dict['errs'])**2
+            else:
+                errs_new_sq = (efac * VLBI_dict['errs'])**2
+        elif log_efac:
             errs_new_sq = (VLBI_dict['errs_random'])**2 + (np.exp(efac) * efads * VLBI_dict['errs_sys'])**2
         else:
             errs_new_sq = (VLBI_dict['errs_random'])**2 + (efac * efads * VLBI_dict['errs_sys'])**2
